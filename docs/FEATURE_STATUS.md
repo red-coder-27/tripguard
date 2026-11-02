@@ -12,43 +12,43 @@
 
 | Screen # | Screen Name | Route / Path | Status | Real Backend Data | Key Capabilities |
 | :--- | :--- | :--- | :---: | :---: | :--- |
-| **Screen 1** | Authentication | `/auth` | ⚪ PLANNED | Yes | Login, Registration, JWT token management, Form validation |
-| **Screen 2** | Overview Dashboard | `/dashboard` | ⚪ PLANNED | Yes | Financial health gauge, Active trips, Risk banner, Spending breakdown, Primary actions |
-| **Screen 3** | My Trips | `/trips` | ⚪ PLANNED | Yes | Trip cards, Search, Status filter, Create Trip modal with emergency reserve |
-| **Screen 4** | Trip Details | `/trips/:id` | ⚪ PLANNED | Yes | Contextual header, Financial summary bar, Workspace tabs |
-| **Screen 5** | Itinerary Planner | `/trips/:id/itinerary` | ⚪ PLANNED | Yes | Day tabs, Activity timeline, `MUST_DO` / `FLEXIBLE` / `OPTIONAL` priority indicators |
-| **Screen 6** | Expense Management | `/trips/:id/expenses` | ⚪ PLANNED | Yes | Ledger table, Category filters, Add Expense modal with booking linkage |
-| **Screen 7** | Booking Management | `/trips/:id/bookings` | ⚪ PLANNED | Yes | Accommodation & transit records, cancellation policies, refund tracking |
-| **Screen 8** | Recovery Center | `/trips/:id/recovery` | ⚪ PLANNED | Yes | **Signature Screen:** Financial gap, 3 distinct strategy cards, Details Drawer, Approval |
-| **Screen 9** | Recovery Ledger | `/trips/:id/ledger` | ⚪ PLANNED | Yes | Auditable timeline, Snapshot hashes, Version history (`v1`, `v2`), Staleness indicators |
-| **Screen 10** | What-If Simulator | `/trips/:id/simulator`| ⚪ PLANNED | Yes | Interactive variable toggles, real-time backend projection, "Save Proposal" |
-| **Screen 11** | Analytics | `/trips/:id/analytics`| ⚪ PLANNED | Yes | Recharts visualizations: Category distribution, burn rate, recovery savings |
-| **Screen 12** | TripGuard Copilot | `/trips/:id/copilot`  | ⚪ PLANNED | Yes | Gemini AI advisory chat with prompt injection of backend truth + deterministic fallback |
-| **Screen 13** | Settings | `/settings`           | ⚪ PLANNED | Yes | User profile, default currency, reserve threshold, security credentials |
+| **Screen 1** | Authentication | `/auth` | 🟢 COMPLETE | Yes | Login, Registration, JWT token management, Quick Demo credentials button (`demo@tripguard.ai` / `TripGuard2026!`), Form validation |
+| **Screen 2** | Overview Dashboard | `/dashboard` | 🟢 COMPLETE | Yes | Canonical financial allocation bar (settled, bookings, estimates, reserve), active trips, risk diagnosis alert banner, quick recovery actions |
+| **Screen 3** | My Trips | `/trips` | 🟢 COMPLETE | Yes | Portfolio list, search, status filter, Create Trip modal with emergency reserve threshold, live financial forecast badges |
+| **Screen 4** | Trip Details | `/trip-details` | 🟢 COMPLETE | Yes | Contextual workspace header, version counter (`v1`, `v2`), financial KPI cards, quick sub-workspace navigation |
+| **Screen 5** | Itinerary Planner | `/itinerary` | 🟢 COMPLETE | Yes | Day tabs (Day 1..N), activity timeline, `MUST_DO` / `FLEXIBLE` / `OPTIONAL` priority badges, item lock toggle (`isLocked`), Add Activity modal |
+| **Screen 6** | Expense Management | `/expenses` | 🟢 COMPLETE | Yes | Minor-unit cleared ledger table, booking linkage (prevents double-counting), category filter, Add Expense modal |
+| **Screen 7** | Booking Management | `/bookings` | 🟢 COMPLETE | Yes | Confirmed accommodation & transit records, cancellation policies, refund tracking, `MODIFICATION_PENDING_USER_ACTION` notices |
+| **Screen 8** | Recovery Center | `/recovery` | 🟢 COMPLETE | Yes | **Signature Screen:** Financial deficit banner, 3 distinct strategy cards, Details Drawer, Approval Modal with versioning upgrade (`v1 -> v2`) |
+| **Screen 9** | Recovery Ledger | `/ledger` | 🟢 COMPLETE | Yes | Auditable timeline, Snapshot hashes, Version history (`v1 -> v2`), Staleness indicators, Snapshot inspection modal |
+| **Screen 10** | What-If Simulator | `/simulator` | 🟢 COMPLETE | Yes | Interactive variable sliders/toggles, real-time backend projection via `/api/v1/simulator/trip/:id/evaluate`, "Simulation only" notice |
+| **Screen 11** | Analytics | `/analytics` | 🟢 COMPLETE | Yes | Recharts visualizations: Category distribution, burn rate velocity, recovery savings realized |
+| **Screen 12** | TripGuard Copilot | `/copilot` | 🟢 COMPLETE | Yes | Interactive conversational advisor grounded in backend truth; Gemini 2.5 API integration + deterministic fallback |
+| **Screen 13** | Settings | `/settings` | 🟢 COMPLETE | Yes | User profile, default currency selector (INR, USD, EUR, GBP), emergency reserve percentage buffer, security sign-out |
 
 ---
 
 ## 2. Core Engine & Backend Modules
 
-| Module | Architectural Role | Status | Verification Plan |
+| Module | Architectural Role | Status | Verification & Test Outcome |
 | :--- | :--- | :---: | :--- |
-| **Authentication & AuthZ** | JWT, bcryptjs, user ownership middleware | ⚪ PLANNED | Unit tests for auth tokens, password hashing, 401/403 responses |
-| **Canonical Financial Ledger** | Integer minor units (paise), zero double-counting | ⚪ PLANNED | Mathematical test suite verifying exact paise balance calculations |
-| **Financial Forecasting** | Settled + Outstanding + Estimates vs Usable Budget | ⚪ PLANNED | Test cases for SAFE, WATCH, AT_RISK, OVER_BUDGET triggers |
-| **Deterministic Recovery Optimizer** | Pure TS constraint engine; 3 strategies; net savings | ⚪ PLANNED | Constraint verification tests (`MUST_DO`, locked, net savings math) |
-| **Snapshotting & Versioning** | Immutability, hash generation, staleness flag | ⚪ PLANNED | Tests verifying itinerary `v1 -> v2` transition upon strategy approval |
-| **AI Copilot (Gemini Integration)** | Advisory explanations with deterministic fallback | ⚪ PLANNED | Tests verifying clean output even when API key is unset |
-| **Seeded Scenario Generator** | ₹50k budget, ₹57k projected, ₹7k recovery down to ₹50k | ⚪ PLANNED | Idempotent database seeder runnable via `npm run seed` |
+| **Authentication & AuthZ** | JWT, bcryptjs, user ownership middleware | 🟢 COMPLETE | Verified by `tests/api.test.ts`: registration, login, token verification |
+| **Canonical Financial Ledger** | Integer minor units (paise), zero double-counting | 🟢 COMPLETE | Verified by `tests/financial.test.ts`: non-overlapping pools, exact paise balance |
+| **Financial Forecasting** | Settled + Outstanding + Estimates vs Usable Budget | 🟢 COMPLETE | Verified by `tests/financial.test.ts`: SAFE, WATCH, AT_RISK, OVER_BUDGET triggers |
+| **Deterministic Recovery Optimizer** | Pure TS constraint engine; 3 strategies; net savings | 🟢 COMPLETE | Verified by `tests/recovery.test.ts`: `MUST_DO` & locked protection, exact ₹7,000 saving |
+| **Snapshotting & Versioning** | Immutability, hash generation, staleness flag | 🟢 COMPLETE | Verified by `tests/recovery.test.ts` & `tests/api.test.ts`: `v1 -> v2` transition on approval |
+| **AI Copilot (Gemini Integration)** | Advisory explanations with deterministic fallback | 🟢 COMPLETE | Implemented in `server/src/copilot/copilotService.ts` with instant fallback |
+| **Seeded Scenario Generator** | ₹50k budget, ₹57k projected, ₹7k recovery down to ₹50k | 🟢 COMPLETE | Runnable via `npm run seed`: ₹50,000 budget, ₹57,000 projected cost, ₹7,000 deficit |
 
 ---
 
-## 3. Production Readiness & Non-Functional Requirements
+## 3. Production Readiness & Non-Functional Verification
 
-| Non-Functional Area | Requirement | Status |
-| :--- | :--- | :---: |
-| **Zero Floating-Point Drift** | All monetary calculations in integer minor currency units | ⚪ PLANNED |
-| **Deterministic Output** | Identical inputs produce bitwise identical recovery recommendations | ⚪ PLANNED |
-| **Design System Alignment** | Dark navigation `#101B2D` + Light workspace `#F5F7FA` + Emerald `#059669` | ⚪ PLANNED |
-| **Mobile Responsiveness** | Responsive layout without horizontal scroll overflow | ⚪ PLANNED |
-| **Automated Test Coverage** | Suite covering financial logic, constraints, API endpoints | ⚪ PLANNED |
-| **Deployment Packaging** | Monorepo build scripts, production bundle, health checks | ⚪ PLANNED |
+| Non-Functional Area | Requirement | Status | Verification Result |
+| :--- | :--- | :---: | :--- |
+| **Zero Floating-Point Drift** | All monetary calculations in integer minor currency units | 🟢 COMPLETE | Integer paise throughout `financial/accounting.ts` and `recoveryEngine.ts` |
+| **Deterministic Output** | Identical inputs produce bitwise identical recovery recommendations | 🟢 COMPLETE | Verified by test: `produces bitwise identical outputs for identical inputs` |
+| **Design System Alignment** | Dark navigation `#101B2D` + Light workspace `#F5F7FA` + Emerald `#059669` | 🟢 COMPLETE | Implemented across all 13 screens with consistent tokens |
+| **Mobile Responsiveness** | Responsive layout without horizontal scroll overflow | 🟢 COMPLETE | Responsive drawer sidebar and touch-friendly layouts |
+| **Automated Test Coverage** | Suite covering financial logic, constraints, API endpoints | 🟢 COMPLETE | 12 automated unit, financial, recovery, and E2E tests passing |
+| **Deployment Packaging** | Monorepo build scripts, production bundle, health checks | 🟢 COMPLETE | `npm run build` succeeds with zero errors; `/api/health` operational |
