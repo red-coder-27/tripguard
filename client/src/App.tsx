@@ -94,7 +94,7 @@ const MainApp: React.FC = () => {
       case '/analytics':
         return <AnalyticsPage />;
       case '/copilot':
-        return <CopilotPage />;
+        return <CopilotPage onNavigate={setCurrentPath} />;
       case '/settings':
         return <SettingsPage />;
       default:
@@ -104,7 +104,7 @@ const MainApp: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-[#F5F7FA] flex text-[#172033]">
-      {/* Dark Navigation Sidebar */}
+      {/* Dark Navigation Sidebar (Permanent on md+, Overlay on mobile) */}
       <Sidebar
         currentPath={currentPath}
         onNavigate={setCurrentPath}
@@ -112,12 +112,14 @@ const MainApp: React.FC = () => {
         onCloseMobile={() => setIsMobileSidebarOpen(false)}
       />
 
-      {/* Main Workspace Area (Offset by fixed 250px desktop sidebar) */}
-      <div className="flex-1 flex flex-col min-w-0 lg:pl-[250px]">
+      {/* Main Workspace Area */}
+      <div className="flex-1 flex flex-col min-w-0">
         {/* Sticky Header */}
         <Header
           onOpenMobileSidebar={() => setIsMobileSidebarOpen(true)}
           pageTitle={getPageTitle(currentPath)}
+          currentPath={currentPath}
+          onNavigate={setCurrentPath}
         />
 
         {/* Workspace Body */}
@@ -140,4 +142,3 @@ export const App: React.FC = () => {
 };
 
 export default App;
-

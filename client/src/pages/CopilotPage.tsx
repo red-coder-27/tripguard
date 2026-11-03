@@ -1,16 +1,16 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Bot,
   Send,
-  Sparkles,
-  Shield,
-  HelpCircle,
-  CheckCircle2,
+  Zap,
   Cpu,
   User as UserIcon,
+  ArrowRight,
+  TrendingUp,
 } from 'lucide-react';
 import { useTrip } from '../context/TripContext.js';
 import { api } from '../services/api.js';
+import { formatCurrency } from '../utils/formatters.js';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -19,8 +19,12 @@ interface Message {
   timestamp: string;
 }
 
-export const CopilotPage: React.FC = () => {
-  const { activeTrip } = useTrip();
+interface CopilotPageProps {
+  onNavigate?: (path: string) => void;
+}
+
+export const CopilotPage: React.FC<CopilotPageProps> = ({ onNavigate }) => {
+  const { activeTrip, forecast } = useTrip();
   const [messages, setMessages] = useState<Message[]>([
     {
       role: 'assistant',
@@ -33,6 +37,15 @@ I have full access to your authoritative financial forecast and deterministic re
   ]);
   const [inputMessage, setInputMessage] = useState('');
   const [isSending, setIsSending] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages, isSending]);
 
   const suggestedQuestions = [
     'Why is my trip over budget?',
@@ -83,18 +96,20 @@ I have full access to your authoritative financial forecast and deterministic re
     return <div className="p-8 text-center text-slate-500">Please select a trip first.</div>;
   }
 
+  const curr = forecast?.currency || 'INR';
+
   return (
-    <div className="h-[calc(100vh-8rem)] flex flex-col bg-white rounded-2xl border border-[#E5EAF0] shadow-xs overflow-hidden">
+    <div className="h-[calc(100vh-8.5rem)] flex flex-col bg-white rounded-2xl border border-[#E5EAF0] shadow-xs overflow-hidden">
       {/* Top Header */}
-      <div className="px-6 py-4 border-b border-[#E5EAF0] bg-slate-50 flex items-center justify-between">
+      <div className="px-6 py-4 border-b border-[#E5EAF0] bg-slate-50 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center">
+          <div className="w-9 h-9 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center shadow-xs">
             <Bot className="w-5 h-5" />
           </div>
           <div>
             <div className="flex items-center gap-2">
               <h2 className="text-sm font-bold text-[#172033]">TripGuard Copilot</h2>
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-800">
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-800 border border-purple-200">
                 Ground Truth Anchored
               </span>
             </div>
@@ -104,14 +119,26 @@ I have full access to your authoritative financial forecast and deterministic re
           </div>
         </div>
 
-        <div className="flex items-center gap-2 text-xs text-slate-500">
-          <Cpu className="w-3.5 h-3.5 text-emerald-600" />
-          <span>Deterministic Fallback Always Available</span>
+        <div className="flex items-center gap-3">
+          {forecast && forecast.overspendingGapMinor > 0 && onNavigate && (
+            <button
+              onClick={() => onNavigate('/recovery')}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-colors shadow-xs"
+            >
+              <Zap className="w-3.5 h-3.5" />
+              <span>Go to Recovery Center</span>
+            </button>
+          )}
+
+          <div className="hidden sm:flex items-center gap-1.5 text-xs text-slate-500">
+            <Cpu className="w-3.5 h-3.5 text-emerald-600" />
+            <span>Deterministic Fallback Always Available</span>
+          </div>
         </div>
       </div>
 
-      {/* Suggested Questions */}
-      <div className="px-6 py-2.5 bg-slate-50/50 border-b border-[#E5EAF0] flex items-center gap-2 overflow-x-auto">
+      {/* Suggested Questions Bar */}
+      <div className="px-6 py-2.5 bg-slate-50/50 border-b border-[#E5EAF0] flex items-center gap-2 overflow-x-auto shrink-0">
         <span className="text-[10px] font-bold uppercase text-slate-400 shrink-0">Suggestions:</span>
         {suggestedQuestions.map((q, idx) => (
           <button
@@ -124,12 +151,14 @@ I have full access to your authoritative financial forecast and deterministic re
         ))}
       </div>
 
-      {/* Chat Messages */}
-      <div className="flex-1 overflow-y-auto p-6 space-y-4">
+      {/* Chat Messages Scroll Container */}
+      <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
         {messages.map((msg, idx) => (
           <div
             key={idx}
-            className={`flex items-start gap-3 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+            className={`flex items-start gap-3 ${
+              msg.role === 'user' ? 'justify-end' : 'justify-start'
+            }`}
           >
             {msg.role === 'assistant' && (
               <div className="w-8 h-8 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center shrink-0 mt-0.5 shadow-2xs">
@@ -145,6 +174,26 @@ I have full access to your authoritative financial forecast and deterministic re
               }`}
             >
               <div className="whitespace-pre-wrap">{msg.content}</div>
+
+              {/* Action trigger if over budget */}
+              {msg.role === 'assistant' &&
+                forecast &&
+                forecast.overspendingGapMinor > 0 &&
+                onNavigate &&
+                idx === messages.length - 1 && (
+                  <div className="mt-3 pt-3 border-t border-slate-200 flex items-center justify-between">
+                    <span className="text-[11px] text-slate-500">
+                      Deficit: <strong>{formatCurrency(forecast.overspendingGapMinor, curr)}</strong>
+                    </span>
+                    <button
+                      onClick={() => onNavigate('/recovery')}
+                      className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[11px] font-bold transition-colors shadow-2xs"
+                    >
+                      <span>Review 3 Recovery Plans</span>
+                      <ArrowRight className="w-3 h-3" />
+                    </button>
+                  </div>
+                )}
 
               <div
                 className={`mt-2 text-[10px] flex items-center justify-between ${
@@ -167,10 +216,24 @@ I have full access to your authoritative financial forecast and deterministic re
             )}
           </div>
         ))}
+
+        {isSending && (
+          <div className="flex items-start gap-3">
+            <div className="w-8 h-8 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center shrink-0 mt-0.5 shadow-2xs">
+              <Bot className="w-4 h-4" />
+            </div>
+            <div className="p-4 rounded-2xl bg-slate-50 border border-[#E5EAF0] text-xs text-slate-500 flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-purple-500 animate-ping" />
+              <span>TripGuard Copilot is consulting backend truth & Gemini...</span>
+            </div>
+          </div>
+        )}
+
+        <div ref={messagesEndRef} />
       </div>
 
       {/* Chat Input Bar */}
-      <div className="p-4 border-t border-[#E5EAF0] bg-slate-50/50">
+      <div className="p-4 border-t border-[#E5EAF0] bg-slate-50/50 shrink-0">
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -197,4 +260,3 @@ I have full access to your authoritative financial forecast and deterministic re
     </div>
   );
 };
-
