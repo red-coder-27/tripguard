@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "TripGuard Backend API and Recovery Engine",
   "private": true,
-  "main": "dist/index.js",
+  "main": "dist/app.js",
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "tsc",

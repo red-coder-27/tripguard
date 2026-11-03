@@ -3,6 +3,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import { env } from './config/env.js';
+import { connectDB } from './config/db.js';
 import { errorHandler } from './middleware/errorHandler.js';
 
 import authRoutes from './routes/auth.routes.js';
@@ -88,6 +89,20 @@ app.get('/api/health', (req, res) => {
     version: '1.0.0',
     environment: env.NODE_ENV,
   });
+});
+
+// Database Connection Middleware for Serverless Service Execution
+app.use(async (req, res, next) => {
+  try {
+    await connectDB();
+    next();
+  } catch (err: any) {
+    console.error('[TripGuard Server] Database connection error in request pipeline:', err.message);
+    res.status(500).json({
+      success: false,
+      error: 'Database connection failed. Please verify MongoDB cluster connectivity.',
+    });
+  }
 });
 
 // REST API Route Mounts

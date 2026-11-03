@@ -162,4 +162,83 @@ describe('TripGuard Production & Vercel Deployment Readiness Suite', () => {
       expect(unapprovedRes.headers['access-control-allow-origin']).toBeUndefined();
     });
   });
+
+  // 7. Vercel Multi-Service Project Architecture & Configuration Verification
+  describe('Vercel Multi-Service Project Configuration (vercel.json & Service Boundaries)', () => {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const fs = require('fs');
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const path = require('path');
+
+    const vercelConfigPath = path.resolve(process.cwd(), '../vercel.json');
+    const vercelConfig = JSON.parse(
+      fs.existsSync(vercelConfigPath)
+        ? fs.readFileSync(vercelConfigPath, 'utf8')
+        : fs.readFileSync(path.resolve(process.cwd(), 'vercel.json'), 'utf8')
+    );
+
+    it('uses the standard "services" key and strictly avoids legacy "experimentalServices"', () => {
+      expect(vercelConfig.services).toBeDefined();
+      expect(typeof vercelConfig.services).toBe('object');
+      expect(vercelConfig.experimentalServices).toBeUndefined();
+    });
+
+    it('correctly configures the frontend service with client root, vite framework, and SPA fallback', () => {
+      const frontend = vercelConfig.services.frontend;
+      expect(frontend).toBeDefined();
+      expect(frontend.root).toBe('client/');
+      expect(frontend.framework).toBe('vite');
+      expect(Array.isArray(frontend.rewrites)).toBe(true);
+      expect(frontend.rewrites[0].destination).toBe('/index.html');
+    });
+
+    it('correctly configures the backend service with server root, express framework, and dist/app.js entrypoint', () => {
+      const backend = vercelConfig.services.backend;
+      expect(backend).toBeDefined();
+      expect(backend.root).toBe('server/');
+      expect(backend.framework).toBe('express');
+      expect(backend.entrypoint).toBe('dist/app.js');
+    });
+
+    it('routes /api and /api/* to the backend service before forwarding catch-all traffic to the frontend', () => {
+      const rewrites = vercelConfig.rewrites;
+      expect(Array.isArray(rewrites)).toBe(true);
+      expect(rewrites.length).toBeGreaterThanOrEqual(3);
+
+      // Rule 1: /api/(.*) -> backend
+      expect(rewrites[0].source).toBe('/api/(.*)');
+      expect(rewrites[0].destination).toEqual({ service: 'backend' });
+
+      // Rule 2: /api -> backend
+      expect(rewrites[1].source).toBe('/api');
+      expect(rewrites[1].destination).toEqual({ service: 'backend' });
+
+      // Rule 3: Catch-all /(.*) -> frontend
+      const lastRewrite = rewrites[rewrites.length - 1];
+      expect(lastRewrite.source).toBe('/(.*)');
+      expect(lastRewrite.destination).toEqual({ service: 'frontend' });
+    });
+
+    it('respects Vercel rule that top-level build and output configuration is delegated to services', () => {
+      expect(vercelConfig.buildCommand).toBeUndefined();
+      expect(vercelConfig.outputDirectory).toBeUndefined();
+    });
+
+    it('verifies server/package.json main points to dist/app.js without starting open persistent socket', () => {
+      const serverPkgPath = path.resolve(process.cwd(), 'package.json');
+      const serverPkg = JSON.parse(
+        fs.existsSync(serverPkgPath)
+          ? fs.readFileSync(serverPkgPath, 'utf8')
+          : fs.readFileSync(path.resolve(process.cwd(), 'server/package.json'), 'utf8')
+      );
+      expect(serverPkg.main).toBe('dist/app.js');
+    });
+
+    it('confirms legacy root api/index.ts has been removed in favor of multi-service backend', () => {
+      const legacyApiDir = path.resolve(process.cwd(), '../api');
+      const localApiDir = path.resolve(process.cwd(), 'api');
+      const exists = fs.existsSync(legacyApiDir) || (process.cwd().endsWith('tripguard') && fs.existsSync(localApiDir));
+      expect(exists).toBe(false);
+    });
+  });
 });

@@ -30,4 +30,11 @@ async function startServer() {
   }
 }
 
-startServer();
+// Only start persistent socket listener during local development or when explicitly requested.
+// In Vercel serverless / multi-service runtime, Vercel invokes the exported app directly.
+if (process.env.NODE_ENV !== 'production' || process.env.ENABLE_LOCAL_LISTENER === 'true') {
+  startServer();
+}
+
+export { app, startServer };
+export default app;
