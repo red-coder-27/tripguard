@@ -24,6 +24,7 @@ export const envSchema = z
     SEED_DEMO_USER_EMAIL: z.string().default('demo@tripguard.ai'),
     SEED_DEMO_USER_PASSWORD: z.string().default('TripGuard2026!'),
     ALLOW_VERCEL_PREVIEWS: z.string().default('true'),
+    TRUST_PROXY: z.string().default('1'),
   })
   .superRefine((data, ctx) => {
     if (data.NODE_ENV === 'production') {

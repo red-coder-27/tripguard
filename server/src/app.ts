@@ -24,6 +24,23 @@ import integrationDiagnosticsRoutes from './routes/integrationDiagnostics.routes
 
 const app = express();
 
+// Express Trust Proxy Configuration
+// In Vercel serverless environment, Express sits behind 1 reverse proxy layer (Vercel Edge / Router).
+// Setting 'trust proxy' to 1 (or configured TRUST_PROXY) ensures:
+// 1. req.ip resolves to the real client IP (appended by Vercel), preventing IP spoofing via arbitrary X-Forwarded-For headers.
+// 2. express-rate-limit accurately isolates rate quotas per real client and avoids ERR_ERL_UNEXPECTED_X_FORWARDED_FOR.
+// 3. req.secure and req.protocol accurately reflect HTTPS connections terminated at Vercel's edge.
+const rawTrustProxy = env.TRUST_PROXY;
+const trustProxyConfig = Number.isInteger(Number(rawTrustProxy))
+  ? Number(rawTrustProxy)
+  : rawTrustProxy === 'true'
+  ? true
+  : rawTrustProxy === 'false'
+  ? false
+  : rawTrustProxy;
+
+app.set('trust proxy', trustProxyConfig);
+
 // Security Headers
 app.use(helmet());
 
@@ -88,6 +105,12 @@ app.get('/api/health', (req, res) => {
     service: 'TripGuard Adaptive Intelligence API',
     version: '1.0.0',
     environment: env.NODE_ENV,
+    proxy: {
+      ip: req.ip,
+      ips: req.ips,
+      protocol: req.protocol,
+      secure: req.secure,
+    },
   });
 });
 

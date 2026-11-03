@@ -228,4 +228,63 @@ describe('TripGuard Production & Vercel Deployment Readiness Suite', () => {
       expect(exists).toBe(false);
     });
   });
+
+  // 8. Express Trust Proxy & Serverless Forwarded Headers Suite
+  describe('Criterion 9: Express Trust Proxy & Serverless Proxy Integrity', () => {
+    it('configures Express trust proxy setting to 1 for Vercel edge reverse proxy architecture', () => {
+      const trustProxy = (app as any).get('trust proxy');
+      expect(trustProxy).toBe(1);
+    });
+
+    it('resolves real client IP and avoids ERR_ERL_UNEXPECTED_X_FORWARDED_FOR with single proxy header', async () => {
+      const res = await request(app)
+        .get('/api/health')
+        .set('X-Forwarded-For', '203.0.113.195');
+
+      expect(res.status).toBe(200);
+      expect(res.body.status).toBe('healthy');
+      expect(res.body.proxy).toBeDefined();
+      expect(res.body.proxy.ip).toBe('203.0.113.195');
+    });
+
+    it('prevents client IP spoofing by trusting only the 1st hop from the reverse proxy', async () => {
+      // Attacker attempts to spoof 198.51.100.1; Vercel appends real client IP 203.0.113.50
+      const res = await request(app)
+        .get('/api/health')
+        .set('X-Forwarded-For', '198.51.100.1, 203.0.113.50');
+
+      expect(res.status).toBe(200);
+      expect(res.body.proxy.ip).toBe('203.0.113.50');
+      expect(res.body.proxy.ip).not.toBe('198.51.100.1');
+    });
+
+    it('accurately identifies secure protocol when forwarded by Vercel edge TLS termination', async () => {
+      const res = await request(app)
+        .get('/api/health')
+        .set('X-Forwarded-Proto', 'https')
+        .set('X-Forwarded-For', '203.0.113.195');
+
+      expect(res.status).toBe(200);
+      expect(res.body.proxy.protocol).toBe('https');
+      expect(res.body.proxy.secure).toBe(true);
+    });
+
+    it('preserves rate limiting headers and operates without error when proxy headers are present', async () => {
+      const res = await request(app)
+        .get('/api/health')
+        .set('X-Forwarded-For', '192.0.2.77');
+
+      expect(res.status).toBe(200);
+      expect(res.headers['ratelimit-limit']).toBeDefined();
+      expect(res.headers['ratelimit-remaining']).toBeDefined();
+      expect(Number(res.headers['ratelimit-limit'])).toBe(1000);
+    });
+
+    it('handles direct requests without proxy headers gracefully', async () => {
+      const res = await request(app).get('/api/health');
+      expect(res.status).toBe(200);
+      expect(res.body.proxy).toBeDefined();
+      expect(['127.0.0.1', '::1', '::ffff:127.0.0.1']).toContain(res.body.proxy.ip);
+    });
+  });
 });
