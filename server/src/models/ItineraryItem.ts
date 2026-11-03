@@ -11,6 +11,9 @@ export interface IItineraryItem extends Document {
   startTime: string; // e.g. "09:30"
   endTime: string;   // e.g. "12:00"
   location: string;
+  latitude?: number;
+  longitude?: number;
+  formattedAddress?: string;
   estimatedCostMinor: number;
   priority: ActivityPriority;
   isLocked: boolean;
@@ -38,6 +41,9 @@ const ItineraryItemSchema = new Schema<IItineraryItem>(
     startTime: { type: String, default: '10:00' },
     endTime: { type: String, default: '12:00' },
     location: { type: String, default: '' },
+    latitude: { type: Number, default: null },
+    longitude: { type: Number, default: null },
+    formattedAddress: { type: String, default: '' },
     estimatedCostMinor: { type: Number, required: true, min: 0 },
     priority: {
       type: String,

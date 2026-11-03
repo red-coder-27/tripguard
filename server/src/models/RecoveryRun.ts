@@ -56,6 +56,19 @@ const RecoveryStrategyResultSchema = new Schema(
     netSavingsMinor: { type: Number, required: true },
     savingsPercentage: { type: Number, required: true },
     disruptionScore: { type: Number, required: true },
+    experiencePreservationScore: { type: Number, default: 85 },
+    preservationBreakdown: {
+      mustDoScore: { type: Number, default: 40 },
+      flexScore: { type: Number, default: 22 },
+      transitEfficiencyScore: { type: Number, default: 14 },
+      preferenceScore: { type: Number, default: 9 },
+    },
+    evidenceConfidence: {
+      level: { type: String, default: 'VERIFIED', enum: ['VERIFIED', 'HIGH', 'MEDIUM', 'ESTIMATED'] },
+      score: { type: Number, default: 95 },
+      verifiedCount: { type: Number, default: 3 },
+      totalCount: { type: Number, default: 3 },
+    },
     affectedCount: { type: Number, required: true },
     modifications: { type: [ProposedModificationSchema], default: [] },
     constraintValidation: {

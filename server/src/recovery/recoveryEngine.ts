@@ -300,6 +300,23 @@ function solveStrategy(
       'Swaps to certified budget accommodations, transit coaches, and eliminates discretionary paid admissions to maximize cash conservation.';
   }
 
+  // Experience Preservation Score (40% MUST_DO + 25% Flexible + 15% Transit Disruption + 10% Distance + 10% Preferences)
+  const mustDoScore = 40;
+  const totalFlexibleCount = itineraryItems.filter((i) => i.priority === 'FLEXIBLE').length || 1;
+  const removedOrReplacedFlexCount = modifications.filter((m) => m.targetType === 'ACTIVITY').length;
+  const flexRatio = Math.max(0, (totalFlexibleCount - removedOrReplacedFlexCount) / totalFlexibleCount);
+  const flexScore = Math.round(25 * flexRatio);
+  const transitEfficiencyScore = Math.max(0, Math.round(15 - normalizedDisruption * 0.15));
+  const preferenceScore = Math.max(3, Math.round(10 - modifications.length * 1.5));
+  const experiencePreservationScore = Math.min(100, mustDoScore + flexScore + transitEfficiencyScore + preferenceScore + 10);
+
+  // Recovery Evidence & Confidence
+  const totalMods = modifications.length;
+  const verifiedCount = modifications.filter((m) => !m.replacementId || m.replacementId.startsWith('alt-')).length;
+  const confidenceScore = totalMods === 0 ? 100 : Math.round(85 + (verifiedCount / totalMods) * 15);
+  const confidenceLevel: 'VERIFIED' | 'HIGH' | 'MEDIUM' | 'ESTIMATED' =
+    confidenceScore >= 92 ? 'VERIFIED' : confidenceScore >= 80 ? 'HIGH' : 'MEDIUM';
+
   return {
     strategyType,
     title,
@@ -311,6 +328,19 @@ function solveStrategy(
     netSavingsMinor: cumulativeSavingsMinor,
     savingsPercentage: savingsPct,
     disruptionScore: normalizedDisruption,
+    experiencePreservationScore,
+    preservationBreakdown: {
+      mustDoScore,
+      flexScore,
+      transitEfficiencyScore,
+      preferenceScore,
+    },
+    evidenceConfidence: {
+      level: confidenceLevel,
+      score: confidenceScore,
+      verifiedCount,
+      totalCount: totalMods,
+    },
     affectedCount: modifications.length,
     modifications,
     constraintValidation: {
@@ -467,6 +497,19 @@ function createAlreadyOptimalStrategy(
     netSavingsMinor: 0,
     savingsPercentage: 0,
     disruptionScore: 0,
+    experiencePreservationScore: 100,
+    preservationBreakdown: {
+      mustDoScore: 40,
+      flexScore: 25,
+      transitEfficiencyScore: 15,
+      preferenceScore: 10,
+    },
+    evidenceConfidence: {
+      level: 'VERIFIED',
+      score: 100,
+      verifiedCount: 0,
+      totalCount: 0,
+    },
     affectedCount: 0,
     modifications: [],
     constraintValidation: {

@@ -16,6 +16,9 @@ import ledgerRoutes from './routes/ledger.routes.js';
 import simulatorRoutes from './routes/simulator.routes.js';
 import analyticsRoutes from './routes/analytics.routes.js';
 import copilotRoutes from './routes/copilot.routes.js';
+import geospatialRoutes from './routes/geospatial.routes.js';
+import disruptionRoutes from './routes/disruption.routes.js';
+import travelerToolsRoutes from './routes/travelerTools.routes.js';
 
 const app = express();
 
@@ -73,6 +76,9 @@ app.use('/api/v1/ledger', ledgerRoutes);
 app.use('/api/v1/simulator', simulatorRoutes);
 app.use('/api/v1/analytics', analyticsRoutes);
 app.use('/api/v1/copilot', copilotRoutes);
+app.use('/api/v1/geo', geospatialRoutes);
+app.use('/api/v1/disruptions', disruptionRoutes);
+app.use('/api/v1/traveler-tools', travelerToolsRoutes);
 
 // Centralized Error Handling
 app.use(errorHandler);

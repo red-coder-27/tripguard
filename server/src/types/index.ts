@@ -89,6 +89,19 @@ export interface RecoveryStrategyResult {
   netSavingsMinor: number;
   savingsPercentage: number;
   disruptionScore: number; // 0 - 100
+  experiencePreservationScore: number; // 0 - 100
+  preservationBreakdown?: {
+    mustDoScore: number;
+    flexScore: number;
+    transitEfficiencyScore: number;
+    preferenceScore: number;
+  };
+  evidenceConfidence: {
+    level: 'VERIFIED' | 'HIGH' | 'MEDIUM' | 'ESTIMATED';
+    score: number;
+    verifiedCount: number;
+    totalCount: number;
+  };
   affectedCount: number;
   modifications: ProposedModification[];
   constraintValidation: {

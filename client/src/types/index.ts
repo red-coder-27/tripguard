@@ -99,6 +99,9 @@ export interface ItineraryItem {
   startTime: string;
   endTime: string;
   location: string;
+  latitude?: number;
+  longitude?: number;
+  formattedAddress?: string;
   estimatedCostMinor: number;
   priority: ActivityPriority;
   isLocked: boolean;
@@ -181,6 +184,19 @@ export interface RecoveryStrategyResult {
   netSavingsMinor: number;
   savingsPercentage: number;
   disruptionScore: number;
+  experiencePreservationScore: number;
+  preservationBreakdown?: {
+    mustDoScore: number;
+    flexScore: number;
+    transitEfficiencyScore: number;
+    preferenceScore: number;
+  };
+  evidenceConfidence?: {
+    level: 'VERIFIED' | 'HIGH' | 'MEDIUM' | 'ESTIMATED';
+    score: number;
+    verifiedCount: number;
+    totalCount: number;
+  };
   affectedCount: number;
   modifications: ProposedModification[];
   constraintValidation: {

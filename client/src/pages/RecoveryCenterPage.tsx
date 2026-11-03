@@ -8,6 +8,7 @@ import {
   Layers,
   ArrowRight,
   Info,
+  Printer,
 } from 'lucide-react';
 import { useTrip } from '../context/TripContext.js';
 import { api } from '../services/api.js';
@@ -147,14 +148,23 @@ export const RecoveryCenterPage: React.FC = () => {
           </p>
         </div>
 
-        <button
-          onClick={handleGenerateRecovery}
-          disabled={isLoading}
-          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#101B2D] hover:bg-[#1E2D45] text-white text-xs font-bold transition-all shadow-sm"
-        >
-          <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
-          {isLoading ? 'Computing Alternatives...' : 'Regenerate Analysis'}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => window.print()}
+            className="inline-flex items-center gap-1.5 px-3 py-2.5 rounded-xl bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 text-xs font-bold transition-all shadow-xs"
+          >
+            <Printer className="w-3.5 h-3.5 text-slate-500" />
+            Print / PDF Brief
+          </button>
+          <button
+            onClick={handleGenerateRecovery}
+            disabled={isLoading}
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#101B2D] hover:bg-[#1E2D45] text-white text-xs font-bold transition-all shadow-sm"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
+            {isLoading ? 'Computing Alternatives...' : 'Regenerate Analysis'}
+          </button>
+        </div>
       </div>
 
       {/* Success notification if approved */}

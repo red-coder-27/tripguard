@@ -13,6 +13,9 @@ import {
   Settings,
   Shield,
   X,
+  MapPin,
+  CloudRain,
+  Luggage,
 } from 'lucide-react';
 import { useTrip } from '../../context/TripContext.js';
 
@@ -35,6 +38,7 @@ export const SidebarContent: React.FC<{
     { label: 'Overview', path: '/dashboard', icon: LayoutDashboard },
     { label: 'My Trips', path: '/trips', icon: Compass },
     { label: 'Itinerary', path: '/itinerary', icon: Calendar },
+    { label: 'Trip Route Map', path: '/map', icon: MapPin },
     { label: 'Expenses', path: '/expenses', icon: Receipt },
     { label: 'Bookings', path: '/bookings', icon: Ticket },
     {
@@ -49,7 +53,9 @@ export const SidebarContent: React.FC<{
     },
     { label: 'Recovery Ledger', path: '/ledger', icon: History },
     { label: 'What-If Simulator', path: '/simulator', icon: Sliders },
-    { label: 'Analytics', path: '/analytics', icon: BarChart3 },
+    { label: 'Analytics & Eco', path: '/analytics', icon: BarChart3 },
+    { label: 'Weather & Alerts', path: '/disruptions', icon: CloudRain },
+    { label: 'Traveler Tools', path: '/traveler-tools', icon: Luggage },
     { label: 'TripGuard Copilot', path: '/copilot', icon: Bot, isAi: true },
     { label: 'Settings', path: '/settings', icon: Settings },
   ];

@@ -11,6 +11,8 @@ export interface AlternativeCandidate {
   rating: number;
   safetyCertified: boolean;
   distanceKmFromCenter: number;
+  latitude?: number;
+  longitude?: number;
   description: string;
   disruptionFactor: number; // 0 to 50
   cancellationTerms: string;
@@ -30,6 +32,8 @@ export const BUILTIN_ALTERNATIVES: AlternativeCandidate[] = [
     rating: 4.8,
     safetyCertified: true,
     distanceKmFromCenter: 1.2,
+    latitude: 35.7130,
+    longitude: 139.7940,
     description: 'Highly rated traditional Japanese boutique inn with modern ensuite amenities, 2 mins from Ginza metro line.',
     disruptionFactor: 20,
     cancellationTerms: 'Free cancellation up to 48 hours prior',
@@ -45,6 +49,8 @@ export const BUILTIN_ALTERNATIVES: AlternativeCandidate[] = [
     rating: 4.6,
     safetyCertified: true,
     distanceKmFromCenter: 0.5,
+    latitude: 35.6920,
+    longitude: 139.7010,
     description: 'First-class aviation-themed private compact cabin with sauna, coworking desk, and secure biometric luggage lockers.',
     disruptionFactor: 40,
     cancellationTerms: 'Free cancellation up to 24 hours prior',
@@ -60,6 +66,8 @@ export const BUILTIN_ALTERNATIVES: AlternativeCandidate[] = [
     rating: 4.9,
     safetyCertified: true,
     distanceKmFromCenter: 0.0,
+    latitude: 35.7135,
+    longitude: 139.7770,
     description: '36-minute high-speed dedicated rail transfer directly into central Ueno with reserved plush seating and complimentary unlimited subway access.',
     disruptionFactor: 15,
     cancellationTerms: 'Fully refundable before first ticket scan',
@@ -75,6 +83,8 @@ export const BUILTIN_ALTERNATIVES: AlternativeCandidate[] = [
     rating: 4.7,
     safetyCertified: true,
     distanceKmFromCenter: 0.0,
+    latitude: 35.6895,
+    longitude: 139.6917,
     description: 'Direct comfortable highway coach with dedicated luggage portering straight to major hotel doorsteps.',
     disruptionFactor: 25,
     cancellationTerms: 'Refundable with 10% processing fee',
@@ -90,6 +100,8 @@ export const BUILTIN_ALTERNATIVES: AlternativeCandidate[] = [
     rating: 4.7,
     safetyCertified: true,
     distanceKmFromCenter: 0.8,
+    latitude: 35.6896,
+    longitude: 139.6921,
     description: 'Spectacular 202-meter high 360-degree panoramic view of Mount Fuji, Tokyo Skytree, and Shinjuku skyline with zero admission fee.',
     disruptionFactor: 15,
     cancellationTerms: 'No booking required, free public entry',
@@ -105,6 +117,8 @@ export const BUILTIN_ALTERNATIVES: AlternativeCandidate[] = [
     rating: 4.9,
     safetyCertified: true,
     distanceKmFromCenter: 1.0,
+    latitude: 35.6852,
+    longitude: 139.7100,
     description: 'Tranquil Imperial heritage gardens blending traditional Japanese, English landscape, and French formal styles.',
     disruptionFactor: 10,
     cancellationTerms: 'On-site ticket kiosk',

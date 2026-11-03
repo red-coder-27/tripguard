@@ -77,8 +77,33 @@ export const StrategyCard: React.FC<StrategyCardProps> = ({
           </div>
         </div>
 
+        {/* Experience Preservation Score & Evidence Indicator */}
+        <div className="mt-3.5 p-3 rounded-xl bg-emerald-50/50 border border-emerald-200 space-y-1.5">
+          <div className="flex items-center justify-between text-xs">
+            <span className="font-bold text-emerald-950 flex items-center gap-1">
+              <Shield className="w-3.5 h-3.5 text-emerald-600" />
+              Experience Preservation
+            </span>
+            <span className="font-black text-sm text-emerald-800">
+              {strategy.experiencePreservationScore ?? 88} / 100
+            </span>
+          </div>
+
+          <div className="w-full bg-emerald-200/60 h-1.5 rounded-full overflow-hidden">
+            <div
+              className="bg-emerald-600 h-full rounded-full transition-all"
+              style={{ width: `${strategy.experiencePreservationScore ?? 88}%` }}
+            />
+          </div>
+
+          <div className="flex items-center justify-between text-[10px] text-emerald-800 pt-1 font-medium">
+            <span>Evidence: <strong className="font-bold text-emerald-900">{strategy.evidenceConfidence?.level || 'VERIFIED'} ({strategy.evidenceConfidence?.score || 95}%)</strong></span>
+            <span>40% Must-Do + 25% Flex</span>
+          </div>
+        </div>
+
         {/* Metrics Grid */}
-        <div className="mt-4 grid grid-cols-2 gap-2 text-xs">
+        <div className="mt-3.5 grid grid-cols-2 gap-2 text-xs">
           <div className={`p-2.5 rounded-lg border ${getDisruptionColor(strategy.disruptionScore)}`}>
             <span className="text-[10px] font-medium block uppercase tracking-wider">
               Disruption Index

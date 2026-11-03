@@ -26,6 +26,37 @@ async function handleResponse<T>(res: Response): Promise<T> {
 }
 
 export const api = {
+  // Generic HTTP helpers
+  async get<T>(url: string): Promise<{ success: boolean; data: T }> {
+    const res = await fetch(`${API_BASE}${url.startsWith('/') ? url : `/${url}`}`, {
+      headers: { ...getAuthHeader() },
+    });
+    return handleResponse(res);
+  },
+  async post<T>(url: string, body?: any): Promise<{ success: boolean; data: T }> {
+    const res = await fetch(`${API_BASE}${url.startsWith('/') ? url : `/${url}`}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    return handleResponse(res);
+  },
+  async patch<T>(url: string, body?: any): Promise<{ success: boolean; data: T }> {
+    const res = await fetch(`${API_BASE}${url.startsWith('/') ? url : `/${url}`}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    return handleResponse(res);
+  },
+  async delete<T>(url: string): Promise<{ success: boolean; message?: string }> {
+    const res = await fetch(`${API_BASE}${url.startsWith('/') ? url : `/${url}`}`, {
+      method: 'DELETE',
+      headers: { ...getAuthHeader() },
+    });
+    return handleResponse(res);
+  },
+
   // Auth
   async login(email: string, password: string): Promise<{ success: boolean; token: string; user: User }> {
     const res = await fetch(`${API_BASE}/auth/login`, {

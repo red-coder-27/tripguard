@@ -17,6 +17,9 @@ import { SimulatorPage } from './pages/SimulatorPage.js';
 import { AnalyticsPage } from './pages/AnalyticsPage.js';
 import { CopilotPage } from './pages/CopilotPage.js';
 import { SettingsPage } from './pages/SettingsPage.js';
+import { TripMapPage } from './pages/TripMapPage.js';
+import { DisruptionsPage } from './pages/DisruptionsPage.js';
+import { TravelerToolsPage } from './pages/TravelerToolsPage.js';
 
 const MainApp: React.FC = () => {
   const { isAuthenticated, isLoading } = useAuth();
@@ -50,6 +53,12 @@ const MainApp: React.FC = () => {
         return 'Trip Workspace';
       case '/itinerary':
         return 'Itinerary Planner';
+      case '/map':
+        return 'GeoGuard Interactive Route Map';
+      case '/disruptions':
+        return 'Travel Disruptions & Alert Hub';
+      case '/traveler-tools':
+        return 'Traveler Tools & Collaboration';
       case '/expenses':
         return 'Expense Ledger';
       case '/bookings':
@@ -81,6 +90,12 @@ const MainApp: React.FC = () => {
         return <TripDetailsPage onNavigate={setCurrentPath} />;
       case '/itinerary':
         return <ItineraryPage />;
+      case '/map':
+        return <TripMapPage />;
+      case '/disruptions':
+        return <DisruptionsPage onNavigate={setCurrentPath} />;
+      case '/traveler-tools':
+        return <TravelerToolsPage />;
       case '/expenses':
         return <ExpensesPage />;
       case '/bookings':

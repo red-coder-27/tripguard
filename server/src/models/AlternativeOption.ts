@@ -12,6 +12,10 @@ export interface IAlternativeOption extends Document {
   rating: number;
   safetyCertified: boolean;
   distanceKmFromCenter: number;
+  latitude?: number;
+  longitude?: number;
+  confidence?: 'VERIFIED' | 'USER_PROVIDED' | 'ESTIMATED' | 'STALE';
+  source?: string;
   description: string;
   amenities: string[];
   cancellationTerms: string;
@@ -40,6 +44,14 @@ const AlternativeOptionSchema = new Schema<IAlternativeOption>(
     rating: { type: Number, default: 4.5, min: 1, max: 5 },
     safetyCertified: { type: Boolean, default: true },
     distanceKmFromCenter: { type: Number, default: 1.0 },
+    latitude: { type: Number, default: null },
+    longitude: { type: Number, default: null },
+    confidence: {
+      type: String,
+      default: 'VERIFIED',
+      enum: ['VERIFIED', 'USER_PROVIDED', 'ESTIMATED', 'STALE'],
+    },
+    source: { type: String, default: 'TripGuard Verified Catalog' },
     description: { type: String, default: '' },
     amenities: { type: [String], default: [] },
     cancellationTerms: { type: String, default: 'Free cancellation up to 48 hours' },
