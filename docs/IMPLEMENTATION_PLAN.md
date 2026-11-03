@@ -159,3 +159,4 @@ flowchart LR
   - Seeded user: `demo@tripguard.ai` / `TripGuard2026!`.
 - [ ] End-to-end verification of Scenes 1 through 7.
 - [ ] Final Documentation & README update.
+

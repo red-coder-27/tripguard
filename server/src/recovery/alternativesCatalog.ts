@@ -110,3 +110,4 @@ export const BUILTIN_ALTERNATIVES: AlternativeCandidate[] = [
     cancellationTerms: 'On-site ticket kiosk',
   },
 ];
+

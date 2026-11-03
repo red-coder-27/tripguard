@@ -49,3 +49,4 @@ const ExpenseSchema = new Schema<IExpense>(
 );
 
 export const Expense = mongoose.model<IExpense>('Expense', ExpenseSchema);
+

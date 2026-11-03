@@ -169,3 +169,4 @@ export const TripDetailsPage: React.FC<TripDetailsPageProps> = ({ onNavigate }) 
     </div>
   );
 };
+

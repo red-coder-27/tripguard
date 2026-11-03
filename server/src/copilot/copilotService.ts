@@ -180,3 +180,4 @@ function generateFollowUps(context: CopilotContext): string[] {
     'How does transport optimization save money?',
   ];
 }
+

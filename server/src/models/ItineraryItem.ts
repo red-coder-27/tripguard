@@ -56,3 +56,4 @@ const ItineraryItemSchema = new Schema<IItineraryItem>(
 );
 
 export const ItineraryItem = mongoose.model<IItineraryItem>('ItineraryItem', ItineraryItemSchema);
+

@@ -144,3 +144,4 @@ export const StrategyCard: React.FC<StrategyCardProps> = ({
     </div>
   );
 };
+

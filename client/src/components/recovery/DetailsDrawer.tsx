@@ -217,3 +217,4 @@ export const DetailsDrawer: React.FC<DetailsDrawerProps> = ({
     </div>
   );
 };
+

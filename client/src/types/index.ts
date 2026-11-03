@@ -219,3 +219,4 @@ export interface AuditEvent {
   metadata: Record<string, any>;
   timestamp: string;
 }
+

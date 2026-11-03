@@ -37,3 +37,4 @@ router.get('/trip/:tripId', authenticate, async (req: AuthRequest, res: Response
 });
 
 export default router;
+

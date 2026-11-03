@@ -48,3 +48,4 @@ const AlternativeOptionSchema = new Schema<IAlternativeOption>(
 );
 
 export const AlternativeOption = mongoose.model<IAlternativeOption>('AlternativeOption', AlternativeOptionSchema);
+

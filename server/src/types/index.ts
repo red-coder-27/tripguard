@@ -110,3 +110,4 @@ export interface RecoveryOptimizationOutput {
   infeasibilityReason?: string;
   generatedAt: string;
 }
+

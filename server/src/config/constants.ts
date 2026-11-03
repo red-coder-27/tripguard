@@ -35,3 +35,4 @@ export const SEED_DEMO = {
   OVERSPENDING_INR: 7000, // ₹7,000
   TARGET_RECOVERED_INR: 50000,
 };
+

@@ -214,3 +214,4 @@ The recovery engine executes in the Node.js backend. It operates purely determin
 - **Security Headers:** Helmet enabled (CSP, HSTS, X-Frame-Options).
 - **Rate Limiting:** IP-based and user-based sliding window rate limiter.
 - **Secret Hygiene:** Environment variables loaded via `.env`, with `.env.example` committed and `.env` strictly git-ignored.
+

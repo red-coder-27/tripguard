@@ -67,3 +67,4 @@ BookingSchema.pre('save', function (next) {
 });
 
 export const Booking = mongoose.model<IBooking>('Booking', BookingSchema);
+

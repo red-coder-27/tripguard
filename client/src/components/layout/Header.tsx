@@ -90,3 +90,4 @@ export const Header: React.FC<HeaderProps> = ({ onOpenMobileSidebar, pageTitle }
     </header>
   );
 };
+

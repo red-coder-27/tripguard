@@ -141,3 +141,4 @@ router.put('/settings', authenticate, async (req: AuthRequest, res: Response) =>
 });
 
 export default router;
+

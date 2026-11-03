@@ -142,3 +142,4 @@ TripGuard pairs a **Dark Navigation Sidebar** (evoking deep security, institutio
   - Cards stack vertically into single-column responsive grids.
   - Horizontal scrolling tables wrapped in `overflow-x-auto` with subtle scroll indicators.
   - Absolutely zero horizontal window overflow (`overflow-x-hidden` on outer shell).
+

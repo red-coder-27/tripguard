@@ -159,3 +159,4 @@ describe('TripGuard Canonical Financial Accounting', () => {
     expect(forecastAtRisk.riskStatus).toBe('AT_RISK');
   });
 });
+

@@ -488,3 +488,4 @@ if (process.argv[1]?.endsWith('seedData.ts') || process.argv[1]?.endsWith('seedD
       process.exit(1);
     });
 }
+

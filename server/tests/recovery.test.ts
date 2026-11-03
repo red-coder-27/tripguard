@@ -160,3 +160,4 @@ describe('TripGuard Deterministic Recovery Engine', () => {
     expect(result.infeasibilityReason).toBeDefined();
   });
 });
+

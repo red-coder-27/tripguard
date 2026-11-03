@@ -412,3 +412,4 @@ export const ItineraryPage: React.FC = () => {
     </div>
   );
 };
+

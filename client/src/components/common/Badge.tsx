@@ -69,3 +69,4 @@ export const RiskBadge: React.FC<{ status: BudgetRiskStatus }> = ({ status }) =>
     </span>
   );
 };
+
