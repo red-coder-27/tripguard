@@ -17,7 +17,7 @@ const createExpenseSchema = z.object({
   description: z.string().min(1, 'Description is required'),
   category: z.enum(['ACCOMMODATION', 'TRANSPORT', 'ACTIVITY', 'FOOD_DINING', 'SHOPPING', 'MISC']),
   amountMinor: z.number().int().min(1, 'Amount must be greater than 0'),
-  currency: z.enum(['INR', 'USD', 'EUR', 'GBP']).default('INR'),
+  currency: z.string().length(3).regex(/^[A-Za-z]{3}$/).transform((v) => v.toUpperCase()).default('INR'),
   date: z.string().optional().transform((val) => (val ? new Date(val) : new Date())),
   paymentMethod: z.enum(['CREDIT_CARD', 'DEBIT_CARD', 'CASH', 'UPI', 'BANK_TRANSFER']).default('CREDIT_CARD'),
   paymentStatus: z.enum(['SETTLED', 'PENDING', 'REFUNDED']).default('SETTLED'),

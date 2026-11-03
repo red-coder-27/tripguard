@@ -138,28 +138,44 @@ TripGuard has generated **3 recovery plans** that close this gap without comprom
 2. **${bal?.title || 'Balanced Recovery'} (Recommended)**
    - **Net Savings:** ${curr}${((bal?.netSavingsMinor || 0) / 100).toLocaleString()}
    - **Disruption Index:** ${bal?.disruptionScore || 0}/100
-   - **Trade-off:** Ideal sweet spot. Swaps hotel to a vetted boutique ryokan, switches airport VIP taxi to express rail, and swaps observation deck for the free metropolitan observatory.
+   - **Trade-off:** Ideal sweet spot. Rebalances high-rate bookings to verified, safety-certified alternatives, recovering ${curr}${((bal?.netSavingsMinor || 0) / 100).toLocaleString()} while preserving all MUST_DO experiences.
 
 3. **${maxS?.title || 'Maximum Savings'}**
    - **Net Savings:** ${curr}${((maxS?.netSavingsMinor || 0) / 100).toLocaleString()}
    - **Disruption Index:** ${maxS?.disruptionScore || 0}/100
-   - **Trade-off:** Aggressive cost reduction. Replaces accommodation with smart capsule stays and eliminates all discretionary paid admissions.`;
+   - **Trade-off:** Aggressive cost reduction. Replaces accommodation with certified budget stays and eliminates discretionary paid admissions.`;
   }
 
+  const balStrategy = context.strategies.find((s) => s.strategyType === 'BALANCED_RECOVERY');
+  const balModHotel = balStrategy?.modifications.find((m) => m.targetType === 'ACCOMMODATION');
+  const balModTransport = balStrategy?.modifications.find((m) => m.targetType === 'TRANSPORT');
+
   if (q.includes('hotel') || q.includes('accommodation')) {
+    if (balModHotel) {
+      return `### Accommodation Analysis
+
+Your accommodation commitments represent a key optimization opportunity for **${context.destination || context.tripName}**.
+
+In the **${balStrategy?.title || 'Balanced Recovery'}** strategy, TripGuard recommends replacing **${balModHotel.targetName}** with **${balModHotel.replacementName || 'a certified boutique alternative'}**, which saves **${curr}${((balModHotel.netSavingsMinor || 0) / 100).toLocaleString()}** net while retaining private ensuite rooms, verified quality, and flexible cancellation terms.`;
+    }
     return `### Accommodation Analysis
 
-Your current accommodation represents a significant portion of your commitments. 
+Your accommodation commitments have been analyzed against our verified catalog for **${context.destination || context.tripName}**.
 
-In the **Balanced Recovery** strategy, TripGuard recommends replacing your high-rate hotel with the **Asakusa Central Boutique Ryokan** (rated 4.8★, 1.2km from center), which saves **${curr}3,500** net while retaining private ensuite rooms, traditional Japanese hospitality, and free cancellation up to 48 hours prior.`;
+TripGuard recommends maintaining flexible reservation policies and considering certified boutique stays in central transit districts to prevent budget overruns.`;
   }
 
   if (q.includes('transport') || q.includes('taxi') || q.includes('train')) {
+    if (balModTransport) {
+      return `### Transport Optimization Analysis
+
+TripGuard identified that optimizing **${balModTransport.targetName}** with **${balModTransport.replacementName || 'express rail or public transit pass'}** saves **${curr}${((balModTransport.netSavingsMinor || 0) / 100).toLocaleString()}** net.
+
+This optimizes your daily transit expenditure in **${context.destination || 'your destination'}** with high reliability and minimal travel friction.`;
+    }
     return `### Transport Optimization Analysis
 
-TripGuard identified that replacing private airport taxi transfers with the **Keisei Skyliner Express Rail + 72h Tokyo Subway Pass** saves **${curr}2,000** net. 
-
-The Keisei Skyliner takes only 36 minutes directly into central Ueno (often faster than highway traffic), includes plush reserved seating, and bundles an unlimited 3-day subway pass.`;
+TripGuard identifies that multi-day transit passes and express airport rail connections in **${context.destination || 'your destination'}** yield the lowest cost-per-kilometer while avoiding road traffic congestion.`;
   }
 
   // General helpful response

@@ -1,5 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
-import L from 'leaflet';
+import * as maplibregl from 'maplibre-gl';
+import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url';
+
+// Explicitly register worker for Vite bundler compatibility
+if (typeof window !== 'undefined' && maplibregl.setWorkerUrl) {
+  maplibregl.setWorkerUrl(workerUrl);
+}
 import {
   MapPin,
   Navigation,
@@ -14,9 +20,13 @@ import {
   Leaf,
   Clock,
   Sparkles,
+  Search,
+  CheckCircle2,
+  Eye,
 } from 'lucide-react';
 import { useTrip } from '../context/TripContext.js';
 import { api } from '../services/api.js';
+import { getCurrencySymbol, formatCurrency } from '../utils/formatters.js';
 
 interface MapDataItem {
   _id: string;
@@ -68,12 +78,27 @@ interface TransportOption {
   recommendedFor: string;
 }
 
+interface AutocompleteItem {
+  formatted: string;
+  lat?: number;
+  lon?: number;
+}
+
+interface GeoapifyPlace {
+  id: string;
+  name: string;
+  category: string;
+  distanceMeters: number;
+  formatted: string;
+  lat: number;
+  lon: number;
+}
+
 export const TripMapPage: React.FC = () => {
   const { activeTrip } = useTrip();
   const mapContainerRef = useRef<HTMLDivElement>(null);
-  const mapInstanceRef = useRef<L.Map | null>(null);
-  const markersLayerRef = useRef<L.LayerGroup | null>(null);
-  const routeLayerRef = useRef<L.Polyline | null>(null);
+  const mapRef = useRef<maplibregl.Map | null>(null);
+  const markersRef = useRef<maplibregl.Marker[]>([]);
 
   const [items, setItems] = useState<MapDataItem[]>([]);
   const [backtrackingReports, setBacktrackingReports] = useState<BacktrackingReport[]>([]);
@@ -81,81 +106,102 @@ export const TripMapPage: React.FC = () => {
   const [activeItem, setActiveItem] = useState<MapDataItem | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
+  // MapTiler style state
+  const [mapStyle, setMapStyle] = useState<'streets-v4' | 'basic-v2' | 'outdoor-v2'>('streets-v4');
+
+  // Search & Autocomplete state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [suggestions, setSuggestions] = useState<AutocompleteItem[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+
+  // Nearby Discovery state (Geoapify Places)
+  const [discoveredPlaces, setDiscoveredPlaces] = useState<GeoapifyPlace[]>([]);
+  const [isLoadingPlaces, setIsLoadingPlaces] = useState(false);
+
   // Nearby Alternatives state
   const [nearbyAlts, setNearbyAlts] = useState<NearbyAlt[]>([]);
-  const [isLoadingNearby, setIsLoadingNearby] = useState<boolean>(false);
-  const [showNearbyModal, setShowNearbyModal] = useState<boolean>(false);
+  const [isLoadingNearby, setIsLoadingNearby] = useState(false);
+  const [showNearbyModal, setShowNearbyModal] = useState(false);
 
   // Transport comparator state
   const [transportOptions, setTransportOptions] = useState<TransportOption[]>([]);
-  const [showTransitDrawer, setShowTransitDrawer] = useState<boolean>(false);
-  const [transitDistanceKm, setTransitDistanceKm] = useState<number>(6.5);
+  const [showTransitDrawer, setShowTransitDrawer] = useState(false);
+  const [transitDistanceKm, setTransitDistanceKm] = useState(6.5);
+
+  const mapTilerKey = (import.meta.env.VITE_MAPTILER_API_KEY as string) || '';
 
   useEffect(() => {
     if (!activeTrip) return;
+    let isCancelled = false;
+
+    // Immediately clear stale state from previous trip
+    setItems([]);
+    setBacktrackingReports([]);
+    setActiveItem(null);
+    setDiscoveredPlaces([]);
+    setNearbyAlts([]);
+    setIsLoading(true);
 
     const fetchMapData = async () => {
       try {
-        setIsLoading(true);
         const res = await api.get<{
           items: MapDataItem[];
           backtrackingReports: BacktrackingReport[];
         }>(`/geo/trip/${activeTrip._id}/map-data`);
 
-        if (res.success && res.data) {
+        if (!isCancelled && res.success && res.data) {
           setItems(res.data.items);
           setBacktrackingReports(res.data.backtrackingReports);
         }
       } catch (err) {
-        console.error('Failed to load map data:', err);
+        if (!isCancelled) console.error('Failed to load map data:', err);
       } finally {
-        setIsLoading(false);
+        if (!isCancelled) setIsLoading(false);
       }
     };
 
     fetchMapData();
-  }, [activeTrip]);
+    return () => {
+      isCancelled = true;
+    };
+  }, [activeTrip?._id]);
 
-  // Initialize Leaflet Map
+  // Initialize MapLibre GL JS with MapTiler Style
   useEffect(() => {
     if (!mapContainerRef.current) return;
 
-    if (!mapInstanceRef.current) {
-      // Tokyo central coordinates
-      const map = L.map(mapContainerRef.current, {
-        center: [35.6895, 139.7005],
-        zoom: 12,
-        zoomControl: true,
-      });
+    // Use MapTiler vector style if key exists, otherwise fallback to open style
+    const styleEndpoint = mapTilerKey
+      ? `https://api.maptiler.com/maps/${mapStyle}/style.json?key=${mapTilerKey}`
+      : 'https://demotiles.maplibre.org/style.json';
 
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-        maxZoom: 18,
-      }).addTo(map);
+    const defaultLon = activeTrip?.destinationLongitude || 2.3522;
+    const defaultLat = activeTrip?.destinationLatitude || 48.8566;
 
-      markersLayerRef.current = L.layerGroup().addTo(map);
-      mapInstanceRef.current = map;
-    }
+    const map = new maplibregl.Map({
+      container: mapContainerRef.current,
+      style: styleEndpoint,
+      center: [defaultLon, defaultLat],
+      zoom: 12,
+    });
+
+    map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), 'top-right');
+    mapRef.current = map;
 
     return () => {
-      if (mapInstanceRef.current) {
-        mapInstanceRef.current.remove();
-        mapInstanceRef.current = null;
-      }
+      map.remove();
+      mapRef.current = null;
     };
-  }, []);
+  }, [mapStyle, mapTilerKey, activeTrip?.destinationLongitude, activeTrip?.destinationLatitude]);
 
-  // Update Markers & Route Polyline when items or selectedDay changes
+  // Update Markers and Route Layer
   useEffect(() => {
-    const map = mapInstanceRef.current;
-    const markersLayer = markersLayerRef.current;
-    if (!map || !markersLayer) return;
+    const map = mapRef.current;
+    if (!map) return;
 
-    markersLayer.clearLayers();
-    if (routeLayerRef.current) {
-      map.removeLayer(routeLayerRef.current);
-      routeLayerRef.current = null;
-    }
+    // Remove old markers
+    markersRef.current.forEach((m) => m.remove());
+    markersRef.current = [];
 
     const filteredItems = items.filter((item) => {
       if (selectedDay !== 'ALL' && item.dayNumber !== selectedDay) return false;
@@ -164,88 +210,208 @@ export const TripMapPage: React.FC = () => {
 
     if (filteredItems.length === 0) return;
 
-    const latLngs: L.LatLngExpression[] = [];
+    const coordinates: [number, number][] = [];
 
     filteredItems.forEach((item, idx) => {
       const lat = item.latitude!;
       const lng = item.longitude!;
-      latLngs.push([lat, lng]);
+      coordinates.push([lng, lat]);
 
       const isMustDo = item.priority === 'MUST_DO';
 
-      const customIcon = L.divIcon({
-        className: 'custom-map-pin',
-        html: `
-          <div style="
-            background: ${isMustDo ? '#059669' : '#2563EB'};
-            color: white;
-            font-weight: 700;
-            font-size: 11px;
-            width: 28px;
-            height: 28px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
-            border: 2px solid white;
-          ">
-            ${idx + 1}
-          </div>
-        `,
-        iconSize: [28, 28],
-        iconAnchor: [14, 14],
+      // Custom DOM Marker
+      const el = document.createElement('div');
+      el.className = 'custom-maptiler-pin';
+      el.innerHTML = `
+        <div style="
+          background: ${isMustDo ? '#059669' : '#2563EB'};
+          color: white;
+          font-weight: 800;
+          font-size: 11px;
+          width: 30px;
+          height: 30px;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.35);
+          border: 2px solid white;
+          cursor: pointer;
+          transition: transform 0.2s ease;
+        ">
+          ${idx + 1}
+        </div>
+      `;
+
+      el.addEventListener('mouseenter', () => {
+        el.style.transform = 'scale(1.15)';
+      });
+      el.addEventListener('mouseleave', () => {
+        el.style.transform = 'scale(1.0)';
       });
 
-      const marker = L.marker([lat, lng], { icon: customIcon }).addTo(markersLayer);
-
-      marker.bindPopup(`
-        <div style="font-family: inherit; min-width: 200px; padding: 4px;">
-          <div style="font-size: 11px; font-weight: 700; color: #059669; text-transform: uppercase;">
+      const currSymbol = getCurrencySymbol(activeTrip?.currency || 'INR');
+      const popup = new maplibregl.Popup({ offset: 25 }).setHTML(`
+        <div style="font-family: inherit; min-width: 210px; padding: 4px;">
+          <div style="font-size: 10px; font-weight: 800; color: #059669; text-transform: uppercase;">
             Day ${item.dayNumber} • ${item.category}
           </div>
-          <div style="font-size: 13px; font-weight: 700; color: #101B2D; margin: 2px 0 4px;">
+          <div style="font-size: 13px; font-weight: 700; color: #101B2D; margin: 3px 0;">
             ${item.title}
           </div>
           <div style="font-size: 11px; color: #64748B; margin-bottom: 6px;">
-            ${item.location || item.formattedAddress || 'Central Tokyo'}
+            ${item.location || item.formattedAddress || activeTrip?.destination || 'Destination'}
           </div>
           <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #E2E8F0; padding-top: 6px; font-size: 11px;">
-            <span style="font-weight: 700; color: #101B2D;">₹${(item.estimatedCostMinor / 100).toLocaleString()}</span>
-            <span style="background: ${isMustDo ? '#ECFDF5' : '#F1F5F9'}; color: ${isMustDo ? '#059669' : '#475569'}; padding: 2px 6px; border-radius: 4px; font-weight: 600;">
+            <span style="font-weight: 800; color: #101B2D;">${currSymbol}${(item.estimatedCostMinor / 100).toLocaleString()}</span>
+            <span style="background: ${isMustDo ? '#ECFDF5' : '#F1F5F9'}; color: ${isMustDo ? '#059669' : '#475569'}; padding: 2px 6px; border-radius: 4px; font-weight: 700;">
               ${item.priority}
             </span>
           </div>
         </div>
       `);
 
-      marker.on('click', () => {
+      const marker = new maplibregl.Marker({ element: el })
+        .setLngLat([lng, lat])
+        .setPopup(popup)
+        .addTo(map);
+
+      el.addEventListener('click', () => {
         setActiveItem(item);
+        handleDiscoverPlaces(lat, lng);
       });
+
+      markersRef.current.push(marker);
     });
 
-    // Draw route connecting line
-    if (latLngs.length > 1) {
-      routeLayerRef.current = L.polyline(latLngs, {
-        color: '#059669',
-        weight: 3.5,
-        opacity: 0.8,
-        dashArray: '6, 8',
-      }).addTo(map);
+    // Add or Update GeoJSON Route Line
+    const updateRouteLayer = () => {
+      const sourceId = 'itinerary-route';
+      const layerId = 'itinerary-route-line';
+
+      if (map.getSource(sourceId)) {
+        (map.getSource(sourceId) as maplibregl.GeoJSONSource).setData({
+          type: 'Feature',
+          properties: {},
+          geometry: {
+            type: 'LineString',
+            coordinates,
+          },
+        });
+      } else {
+        map.addSource(sourceId, {
+          type: 'geojson',
+          data: {
+            type: 'Feature',
+            properties: {},
+            geometry: {
+              type: 'LineString',
+              coordinates,
+            },
+          },
+        });
+
+        map.addLayer({
+          id: layerId,
+          type: 'line',
+          source: sourceId,
+          layout: {
+            'line-join': 'round',
+            'line-cap': 'round',
+          },
+          paint: {
+            'line-color': '#059669',
+            'line-width': 4,
+            'line-opacity': 0.85,
+            'line-dasharray': [2, 2],
+          },
+        });
+      }
+    };
+
+    if (map.isStyleLoaded()) {
+      updateRouteLayer();
+    } else {
+      map.once('style.load', updateRouteLayer);
     }
 
-    // Fit map bounds to encompass all visible markers
-    const group = L.featureGroup(markersLayer.getLayers() as L.Layer[]);
-    map.fitBounds(group.getBounds().pad(0.18));
+    // Fit Bounds
+    if (coordinates.length > 1) {
+      const bounds = coordinates.reduce(
+        (b, coord) => b.extend(coord),
+        new maplibregl.LngLatBounds(coordinates[0], coordinates[0])
+      );
+      map.fitBounds(bounds, { padding: 60, maxZoom: 14 });
+    } else if (coordinates.length === 1) {
+      map.flyTo({ center: coordinates[0], zoom: 13 });
+    }
   }, [items, selectedDay]);
+
+  // Autocomplete search
+  const handleSearchChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setSearchQuery(val);
+
+    if (val.trim().length >= 2) {
+      setIsSearching(true);
+      try {
+        const res = await api.get<AutocompleteItem[]>(
+          `/geo/autocomplete?text=${encodeURIComponent(val)}`
+        );
+        if (res.success && res.data) {
+          setSuggestions(res.data);
+        }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setIsSearching(false);
+      }
+    } else {
+      setSuggestions([]);
+    }
+  };
+
+  const handleSelectSuggestion = (s: AutocompleteItem) => {
+    if (s.lat && s.lon && mapRef.current) {
+      mapRef.current.flyTo({ center: [s.lon, s.lat], zoom: 14 });
+      setSearchQuery(s.formatted);
+      setSuggestions([]);
+
+      // Add temporary highlight marker
+      new maplibregl.Marker({ color: '#DC2626' })
+        .setLngLat([s.lon, s.lat])
+        .setPopup(new maplibregl.Popup().setText(s.formatted))
+        .addTo(mapRef.current);
+    }
+  };
+
+  // Geoapify Places Discovery near clicked waypoint
+  const handleDiscoverPlaces = async (lat: number, lon: number) => {
+    setIsLoadingPlaces(true);
+    try {
+      const res = await api.get<GeoapifyPlace[]>(
+        `/geo/places?lat=${lat}&lon=${lon}&categories=tourism.sights&radius=3000&limit=4`
+      );
+      if (res.success && res.data) {
+        setDiscoveredPlaces(res.data);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsLoadingPlaces(false);
+    }
+  };
 
   const handleOpenNearby = async (item: MapDataItem) => {
     setActiveItem(item);
     setIsLoadingNearby(true);
     setShowNearbyModal(true);
     try {
+      const fallbackLat = activeTrip?.destinationLatitude || 48.8566;
+      const fallbackLng = activeTrip?.destinationLongitude || 2.3522;
+      const currency = activeTrip?.currency || 'INR';
       const res = await api.get<NearbyAlt[]>(
-        `/geo/nearby?lat=${item.latitude || 35.6938}&lng=${item.longitude || 139.7034}&radius=8&category=${item.category}`
+        `/geo/nearby?lat=${item.latitude || fallbackLat}&lng=${item.longitude || fallbackLng}&radius=8&category=${item.category}&currency=${currency}`
       );
       if (res.success && res.data) {
         setNearbyAlts(res.data);
@@ -261,8 +427,9 @@ export const TripMapPage: React.FC = () => {
     setTransitDistanceKm(distKm);
     setShowTransitDrawer(true);
     try {
+      const currency = activeTrip?.currency || 'INR';
       const res = await api.get<{ options: TransportOption[] }>(
-        `/geo/transit-compare?distanceKm=${distKm}`
+        `/geo/transit-compare?distanceKm=${distKm}&currency=${currency}`
       );
       if (res.success && res.data) {
         setTransportOptions(res.data.options);
@@ -284,15 +451,15 @@ export const TripMapPage: React.FC = () => {
           <div className="flex items-center gap-2">
             <span className="px-2.5 py-1 bg-emerald-50 text-emerald-700 text-xs font-bold rounded-lg uppercase tracking-wider flex items-center gap-1.5 border border-emerald-200">
               <Compass className="w-3.5 h-3.5 text-emerald-600" />
-              GeoGuard Intelligence
+              MapTiler & MapLibre Vector Engine
             </span>
-            <span className="text-xs text-slate-500 font-medium">OSM Vector Engine</span>
+            <span className="text-xs text-slate-500 font-medium">Geoapify Places & Routing</span>
           </div>
           <h1 className="text-xl font-bold text-slate-900 mt-1">
             Trip Route & Geospatial Awareness
           </h1>
           <p className="text-xs text-slate-500">
-            {activeTrip?.name || 'Tokyo Autumn Discovery 2026'} • Visualizing waypoint coordinates, transit efficiency, and nearby recovery hubs.
+            {activeTrip?.name || 'Tokyo Autumn Discovery 2026'} • Vector cartography, waypoint sequences, turn-by-turn routing, and nearby discovery.
           </p>
         </div>
 
@@ -300,7 +467,7 @@ export const TripMapPage: React.FC = () => {
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0">
           <button
             onClick={() => setSelectedDay('ALL')}
-            className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+            className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${
               selectedDay === 'ALL'
                 ? 'bg-slate-900 text-white shadow-sm'
                 : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
@@ -312,7 +479,7 @@ export const TripMapPage: React.FC = () => {
             <button
               key={d}
               onClick={() => setSelectedDay(d)}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+              className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${
                 selectedDay === d
                   ? 'bg-emerald-600 text-white shadow-sm'
                   : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
@@ -343,7 +510,7 @@ export const TripMapPage: React.FC = () => {
               {currentDayBacktracking.explanation}
             </p>
             <div className="mt-2 text-xs text-amber-900 font-semibold flex items-center gap-2">
-              <span>Suggested linear order:</span>
+              <span>Optimal sequence:</span>
               <span className="bg-white/80 px-2 py-0.5 rounded border border-amber-200 text-[11px] font-mono">
                 {currentDayBacktracking.suggestedOptimalOrder.join(' ➔ ')}
               </span>
@@ -358,14 +525,65 @@ export const TripMapPage: React.FC = () => {
         </div>
       )}
 
+      {/* Search & Vector Map Controls Header */}
+      <div className="bg-white p-3.5 rounded-2xl border border-slate-200/80 shadow-sm flex flex-col md:flex-row items-center justify-between gap-3 relative">
+        {/* Geoapify Autocomplete Search */}
+        <div className="relative w-full md:w-96">
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl">
+            <Search className="w-4 h-4 text-slate-400" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={handleSearchChange}
+              placeholder="Search destination, station, or landmark..."
+              className="bg-transparent text-xs w-full outline-none text-slate-900 placeholder:text-slate-400"
+            />
+          </div>
+
+          {/* Autocomplete Dropdown */}
+          {suggestions.length > 0 && (
+            <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-xl z-50 overflow-hidden divide-y divide-slate-100">
+              {suggestions.map((s, idx) => (
+                <div
+                  key={idx}
+                  onClick={() => handleSelectSuggestion(s)}
+                  className="p-2.5 hover:bg-emerald-50/50 cursor-pointer text-xs text-slate-700 flex items-center gap-2 transition-colors"
+                >
+                  <MapPin className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                  <span className="truncate">{s.formatted}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Map Style Switcher */}
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Style:</span>
+          {(['streets-v4', 'basic-v2', 'outdoor-v2'] as const).map((style) => (
+            <button
+              key={style}
+              onClick={() => setMapStyle(style)}
+              className={`px-2.5 py-1 text-xs font-semibold rounded-lg capitalize transition-all ${
+                mapStyle === style
+                  ? 'bg-slate-900 text-white shadow-xs'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              }`}
+            >
+              {style.replace('-v4', '').replace('-v2', '')}
+            </button>
+          ))}
+        </div>
+      </div>
+
       {/* Main Grid: Map (Left 2 cols) + Waypoint List (Right 1 col) */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Map View */}
-        <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden flex flex-col h-[580px] relative">
+        <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden flex flex-col h-[600px] relative">
           <div className="p-3 bg-slate-900 text-white flex items-center justify-between text-xs font-medium z-10">
             <div className="flex items-center gap-2">
               <MapPin className="w-4 h-4 text-emerald-400" />
-              <span>Interactive Leaflet Map • {selectedDay === 'ALL' ? 'Complete Route' : `Day ${selectedDay} Path`}</span>
+              <span>MapLibre GL JS • MapTiler {mapStyle} • {selectedDay === 'ALL' ? 'Complete Itinerary Route' : `Day ${selectedDay} Sequence`}</span>
             </div>
             <div className="flex items-center gap-3">
               <span className="flex items-center gap-1.5">
@@ -382,14 +600,14 @@ export const TripMapPage: React.FC = () => {
           <div ref={mapContainerRef} className="flex-1 w-full h-full" />
 
           {/* Quick Floating Action on Map */}
-          <div className="absolute bottom-4 left-4 z-[500] bg-white/90 backdrop-blur-md px-3 py-2 rounded-xl border border-slate-200 shadow-lg text-xs flex items-center gap-2.5">
+          <div className="absolute bottom-4 left-4 z-[10] bg-white/95 backdrop-blur-md px-3 py-2 rounded-xl border border-slate-200 shadow-lg text-xs flex items-center gap-2.5">
             <Sparkles className="w-4 h-4 text-emerald-600" />
-            <span className="text-slate-700 font-medium">Click any pin to inspect or find nearby budget alternatives</span>
+            <span className="text-slate-700 font-medium">Click any numbered pin to discover nearby sights in {activeTrip?.destination || 'your destination'} via Geoapify</span>
           </div>
         </div>
 
         {/* Waypoints & Activity Panel */}
-        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-4 flex flex-col h-[580px]">
+        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-4 flex flex-col h-[600px]">
           <div className="flex items-center justify-between pb-3 border-b border-slate-100">
             <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2">
               <Layers className="w-4 h-4 text-emerald-600" />
@@ -409,11 +627,18 @@ export const TripMapPage: React.FC = () => {
               .map((item, idx) => {
                 const isSelected = activeItem?._id === item._id;
                 const isMustDo = item.priority === 'MUST_DO';
+                const currSymbol = getCurrencySymbol(activeTrip?.currency || 'INR');
 
                 return (
                   <div
                     key={item._id}
-                    onClick={() => setActiveItem(item)}
+                    onClick={() => {
+                      setActiveItem(item);
+                      if (item.latitude && item.longitude && mapRef.current) {
+                        mapRef.current.flyTo({ center: [item.longitude, item.latitude], zoom: 14 });
+                        handleDiscoverPlaces(item.latitude, item.longitude);
+                      }
+                    }}
                     className={`p-3 rounded-xl border transition-all cursor-pointer ${
                       isSelected
                         ? 'border-emerald-500 bg-emerald-50/40 shadow-sm'
@@ -430,12 +655,12 @@ export const TripMapPage: React.FC = () => {
                             {item.title}
                           </h3>
                           <p className="text-[11px] text-slate-500 mt-0.5 line-clamp-1">
-                            {item.location || item.formattedAddress || 'Tokyo Central'}
+                            {item.location || item.formattedAddress || activeTrip?.destination || 'Destination Center'}
                           </p>
                         </div>
                       </div>
                       <span className="text-xs font-bold text-slate-900 shrink-0">
-                        ₹{(item.estimatedCostMinor / 100).toLocaleString()}
+                        {currSymbol}{(item.estimatedCostMinor / 100).toLocaleString()}
                       </span>
                     </div>
 
@@ -469,6 +694,23 @@ export const TripMapPage: React.FC = () => {
                 );
               })}
           </div>
+
+          {/* Geoapify Discovered Places Box */}
+          {activeItem && discoveredPlaces.length > 0 && (
+            <div className="mt-3 pt-3 border-t border-slate-200">
+              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-2">
+                Geoapify Places Near {activeItem.title}
+              </span>
+              <div className="space-y-1.5 max-h-32 overflow-y-auto">
+                {discoveredPlaces.map((p) => (
+                  <div key={p.id} className="text-[11px] p-1.5 bg-slate-50 rounded-lg border border-slate-100 flex items-center justify-between">
+                    <span className="font-semibold text-slate-800 truncate">{p.name}</span>
+                    <span className="text-[10px] text-slate-400 shrink-0">{p.distanceMeters}m away</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

@@ -70,7 +70,7 @@ export async function getDestinationWeatherForecast(
     // Graceful offline fallback
   }
 
-  // Deterministic realistic seasonal Tokyo autumn fallback
+  // Deterministic realistic destination weather fallback
   const baseDate = new Date();
   const sampleForecasts: DailyWeatherForecast[] = [
     {
@@ -81,7 +81,7 @@ export async function getDestinationWeatherForecast(
       tempMinC: 13,
       precipitationProbability: 10,
       isOutdoorWarning: false,
-      recommendation: 'Clear sky, perfect for rooftop observation decks and arrival strolls.',
+      recommendation: 'Clear sky, perfect for rooftop observation decks, walking tours, and arrival strolls.',
     },
     {
       date: new Date(baseDate.getTime() + 2 * 86400000).toISOString().split('T')[0],
@@ -91,7 +91,7 @@ export async function getDestinationWeatherForecast(
       tempMinC: 14,
       precipitationProbability: 15,
       isOutdoorWarning: false,
-      recommendation: 'Comfortable temperatures for morning temple walks and outdoor markets.',
+      recommendation: 'Comfortable temperatures for morning cultural landmarks and outdoor markets.',
     },
     {
       date: new Date(baseDate.getTime() + 3 * 86400000).toISOString().split('T')[0],
@@ -101,7 +101,7 @@ export async function getDestinationWeatherForecast(
       tempMinC: 11,
       precipitationProbability: 80,
       isOutdoorWarning: true,
-      recommendation: 'Heavy rainfall expected. Switch to teamLab Planets, covered arcade markets, and indoor culinary masterclasses.',
+      recommendation: 'Heavy rainfall expected. Switch to museums, covered arcade markets, and indoor culinary experiences.',
     },
     {
       date: new Date(baseDate.getTime() + 4 * 86400000).toISOString().split('T')[0],
@@ -111,7 +111,7 @@ export async function getDestinationWeatherForecast(
       tempMinC: 12,
       precipitationProbability: 20,
       isOutdoorWarning: false,
-      recommendation: 'Rain cleared. Great day for Meiji Shrine forest walks and Akihabara.',
+      recommendation: 'Rain cleared. Great day for municipal gardens, parks, and architectural exploration.',
     },
     {
       date: new Date(baseDate.getTime() + 5 * 86400000).toISOString().split('T')[0],
@@ -121,7 +121,7 @@ export async function getDestinationWeatherForecast(
       tempMinC: 13,
       precipitationProbability: 5,
       isOutdoorWarning: false,
-      recommendation: 'Mild pleasant autumn weather across Tokyo transit network.',
+      recommendation: 'Mild pleasant weather across the local transit network and urban highlights.',
     },
     {
       date: new Date(baseDate.getTime() + 6 * 86400000).toISOString().split('T')[0],
@@ -131,7 +131,7 @@ export async function getDestinationWeatherForecast(
       tempMinC: 12,
       precipitationProbability: 15,
       isOutdoorWarning: false,
-      recommendation: 'Cool autumn breeze in Ginza and historical craft districts.',
+      recommendation: 'Cool breeze in historic craft quarters and shopping avenues.',
     },
     {
       date: new Date(baseDate.getTime() + 7 * 86400000).toISOString().split('T')[0],
@@ -141,9 +141,10 @@ export async function getDestinationWeatherForecast(
       tempMinC: 13,
       precipitationProbability: 10,
       isOutdoorWarning: false,
-      recommendation: 'Clear departure day for airport transfers.',
+      recommendation: 'Clear departure day for airport transfers and travel connections.',
     },
   ];
 
   return sampleForecasts.slice(0, daysCount);
 }
+

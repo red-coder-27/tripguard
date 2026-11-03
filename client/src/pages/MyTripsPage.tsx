@@ -14,7 +14,7 @@ import { useTrip } from '../context/TripContext.js';
 import { api } from '../services/api.js';
 import { Modal } from '../components/common/Modal.js';
 import { RiskBadge } from '../components/common/Badge.js';
-import { formatCurrency, formatDate } from '../utils/formatters.js';
+import { formatCurrency, formatDate, getCurrencyDivisor } from '../utils/formatters.js';
 
 interface MyTripsPageProps {
   onNavigate: (path: string) => void;
@@ -34,7 +34,7 @@ export const MyTripsPage: React.FC<MyTripsPageProps> = ({ onNavigate }) => {
   const [travelersCount, setTravelersCount] = useState(1);
   const [totalBudget, setTotalBudget] = useState('50000');
   const [emergencyReserve, setEmergencyReserve] = useState('5000');
-  const [currency, setCurrency] = useState<'INR' | 'USD' | 'EUR' | 'GBP'>('INR');
+  const [currency, setCurrency] = useState<string>('INR');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const filteredTrips = trips.filter((t) => {
@@ -49,9 +49,10 @@ export const MyTripsPage: React.FC<MyTripsPageProps> = ({ onNavigate }) => {
     e.preventDefault();
     setIsSubmitting(true);
     try {
-      const totalBudgetMinor = Math.round(parseFloat(totalBudget) * 100);
+      const divisor = getCurrencyDivisor(currency);
+      const totalBudgetMinor = Math.round(parseFloat(totalBudget) * divisor);
       const emergencyReserveMinor = emergencyReserve
-        ? Math.round(parseFloat(emergencyReserve) * 100)
+        ? Math.round(parseFloat(emergencyReserve) * divisor)
         : Math.round(totalBudgetMinor * 0.10);
 
       const res = await api.createTrip({
@@ -322,13 +323,19 @@ export const MyTripsPage: React.FC<MyTripsPageProps> = ({ onNavigate }) => {
               <label className="block text-xs font-semibold text-[#172033] mb-1">Currency</label>
               <select
                 value={currency}
-                onChange={(e) => setCurrency(e.target.value as any)}
+                onChange={(e) => setCurrency(e.target.value)}
                 className="w-full text-xs px-3 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600"
               >
                 <option value="INR">INR (₹)</option>
                 <option value="USD">USD ($)</option>
                 <option value="EUR">EUR (€)</option>
                 <option value="GBP">GBP (£)</option>
+                <option value="JPY">JPY (¥)</option>
+                <option value="SGD">SGD (S$)</option>
+                <option value="AED">AED (AED)</option>
+                <option value="AUD">AUD (A$)</option>
+                <option value="CAD">CAD (C$)</option>
+                <option value="CHF">CHF (CHF)</option>
               </select>
             </div>
           </div>

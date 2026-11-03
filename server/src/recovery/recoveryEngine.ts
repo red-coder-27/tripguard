@@ -12,6 +12,7 @@ import {
 } from '../types/index.js';
 import { calculateFinancialForecast } from '../financial/forecasting.js';
 import { BUILTIN_ALTERNATIVES, AlternativeCandidate } from './alternativesCatalog.js';
+import { formatCurrencyAmount } from '../config/constants.js';
 
 export function computeSnapshotHash(
   trip: ITrip,
@@ -178,7 +179,7 @@ function solveStrategy(
     // 1. Evaluate Transport
     for (const item of transportItems) {
       if (cumulativeSavingsMinor >= targetGapMinor) break;
-      const mod = evaluateReplacement(item, bookingMap.get(item._id.toString()), catalog, 'STANDARD');
+      const mod = evaluateReplacement(item, bookingMap.get(item._id.toString()), catalog, 'STANDARD', trip);
       if (mod && mod.netSavingsMinor > 0) {
         modifications.push(mod);
         cumulativeSavingsMinor += mod.netSavingsMinor;
@@ -189,7 +190,7 @@ function solveStrategy(
     // 2. Evaluate Accommodation if gap still open
     for (const item of accommodationItems) {
       if (cumulativeSavingsMinor >= targetGapMinor) break;
-      const mod = evaluateReplacement(item, bookingMap.get(item._id.toString()), catalog, 'STANDARD');
+      const mod = evaluateReplacement(item, bookingMap.get(item._id.toString()), catalog, 'STANDARD', trip);
       if (mod && mod.netSavingsMinor > 0) {
         modifications.push(mod);
         cumulativeSavingsMinor += mod.netSavingsMinor;
@@ -207,7 +208,7 @@ function solveStrategy(
     // 1. Accommodation
     for (const item of accommodationItems) {
       if (cumulativeSavingsMinor >= targetGapMinor) break;
-      const mod = evaluateReplacement(item, bookingMap.get(item._id.toString()), catalog, 'STANDARD');
+      const mod = evaluateReplacement(item, bookingMap.get(item._id.toString()), catalog, 'STANDARD', trip);
       if (mod && mod.netSavingsMinor > 0) {
         modifications.push(mod);
         cumulativeSavingsMinor += mod.netSavingsMinor;
@@ -218,7 +219,7 @@ function solveStrategy(
     // 2. Transport
     for (const item of transportItems) {
       if (cumulativeSavingsMinor >= targetGapMinor) break;
-      const mod = evaluateReplacement(item, bookingMap.get(item._id.toString()), catalog, 'STANDARD');
+      const mod = evaluateReplacement(item, bookingMap.get(item._id.toString()), catalog, 'STANDARD', trip);
       if (mod && mod.netSavingsMinor > 0) {
         modifications.push(mod);
         cumulativeSavingsMinor += mod.netSavingsMinor;
@@ -229,7 +230,7 @@ function solveStrategy(
     // 3. Optional Activity swap for free/budget alternative
     for (const item of optionalActivities) {
       if (cumulativeSavingsMinor >= targetGapMinor) break;
-      const mod = evaluateReplacement(item, bookingMap.get(item._id.toString()), catalog, 'BUDGET');
+      const mod = evaluateReplacement(item, bookingMap.get(item._id.toString()), catalog, 'BUDGET', trip);
       if (mod && mod.netSavingsMinor > 0) {
         modifications.push(mod);
         cumulativeSavingsMinor += mod.netSavingsMinor;
@@ -247,7 +248,7 @@ function solveStrategy(
 
       if (item.priority === 'OPTIONAL' && item.category === 'ACTIVITY') {
         // Can remove completely or swap to free
-        const mod = evaluateRemovalOrFreeSwap(item, bookingMap.get(item._id.toString()), catalog);
+        const mod = evaluateRemovalOrFreeSwap(item, bookingMap.get(item._id.toString()), catalog, trip);
         if (mod && mod.netSavingsMinor > 0) {
           modifications.push(mod);
           cumulativeSavingsMinor += mod.netSavingsMinor;
@@ -256,7 +257,7 @@ function solveStrategy(
         }
       }
 
-      const mod = evaluateReplacement(item, bookingMap.get(item._id.toString()), catalog, 'BUDGET');
+      const mod = evaluateReplacement(item, bookingMap.get(item._id.toString()), catalog, 'BUDGET', trip);
       if (mod && mod.netSavingsMinor > 0) {
         modifications.push(mod);
         cumulativeSavingsMinor += mod.netSavingsMinor;
@@ -350,21 +351,142 @@ function solveStrategy(
       reserveProtected: revisedProjectedCostMinor <= forecast.usableBudgetMinor,
       cancellationLiabilitiesHonored: true,
     },
-    narrativeSummary: `Identified ${modifications.length} actionable modifications providing ₹${(
-      cumulativeSavingsMinor / 100
-    ).toLocaleString()} in net verified savings (disruption index: ${normalizedDisruption}/100).`,
+    narrativeSummary: `Identified ${modifications.length} actionable modifications providing ${formatCurrencyAmount(
+      cumulativeSavingsMinor,
+      trip.currency
+    )} in net savings (disruption index: ${normalizedDisruption}/100).`,
   };
+}
+
+function getCandidatesForItem(
+  item: IItineraryItem,
+  catalog: AlternativeCandidate[],
+  preferredTier: 'BUDGET' | 'STANDARD' | 'PREMIUM',
+  destination?: string
+): AlternativeCandidate[] {
+  const destSafe = destination || 'Tokyo, Japan';
+  const destClean = destSafe.toLowerCase().split(',')[0].trim();
+  // 1. Destination-matched candidates from catalog
+  const destMatch = catalog.filter(
+    (c) =>
+      c.category === item.category &&
+      (preferredTier === 'BUDGET' || c.tier === preferredTier) &&
+      (c.destination || '').toLowerCase().includes(destClean) &&
+      c.costMinor < item.estimatedCostMinor
+  );
+  if (destMatch.length > 0) return destMatch;
+
+  // 2. Any catalog items matching tier and category with valid lower cost
+  const generalMatch = catalog.filter(
+    (c) =>
+      c.category === item.category &&
+      (preferredTier === 'BUDGET' || c.tier === preferredTier) &&
+      c.costMinor < item.estimatedCostMinor
+  );
+  if (generalMatch.length > 0) return generalMatch;
+
+  // 3. Dynamic algorithmic proposal calibrated to target item's cost and destination
+  // Honestly classified as HYPOTHETICAL_PROPOSAL - never pretending to be a verified real-world business
+  const isBudget = preferredTier === 'BUDGET';
+  const nowIso = new Date().toISOString();
+
+  if (item.category === 'ACCOMMODATION') {
+    const costMinor = Math.round(item.estimatedCostMinor * (isBudget ? 0.45 : 0.70));
+    return [
+      {
+        id: `hyp-stay-${item._id}-${preferredTier.toLowerCase()}`,
+        category: 'ACCOMMODATION',
+        destination: destSafe,
+        name: isBudget
+          ? `Hypothetical Budget Stay Target (${destSafe})`
+          : `Hypothetical Standard Stay Target (${destSafe})`,
+        provider: 'TripGuard Cost-Reduction Model',
+        costMinor,
+        tier: preferredTier,
+        rating: undefined, // Honest: no fabricated rating
+        safetyCertified: false, // Honest: vendor not yet booked/audited
+        distanceKmFromCenter: isBudget ? 2.5 : 1.2,
+        description: `Algorithmic budget target proposed by TripGuard optimization engine to achieve solvency. Reallocate booking to any vetted budget accommodation in ${destSafe} within this price threshold.`,
+        disruptionFactor: isBudget ? 35 : 20,
+        cancellationTerms: 'Vendor terms apply upon reservation',
+        sourcingKind: 'HYPOTHETICAL_PROPOSAL',
+        isHypothetical: true,
+        isPriceVerified: false,
+        evidenceSource: 'TripGuard Algorithmic Solver',
+        catalogVersion: 'v2026.1',
+        retrievalTimestamp: nowIso,
+      },
+    ];
+  }
+
+  if (item.category === 'TRANSPORT') {
+    const costMinor = Math.round(item.estimatedCostMinor * (isBudget ? 0.35 : 0.50));
+    return [
+      {
+        id: `hyp-transit-${item._id}-${preferredTier.toLowerCase()}`,
+        category: 'TRANSPORT',
+        destination: destSafe,
+        name: isBudget
+          ? `Hypothetical Scheduled Express Coach (${destSafe})`
+          : `Hypothetical Urban Transit Pass Target (${destSafe})`,
+        provider: 'TripGuard Cost-Reduction Model',
+        costMinor,
+        tier: preferredTier,
+        rating: undefined,
+        safetyCertified: false,
+        distanceKmFromCenter: 0.0,
+        description: isBudget
+          ? 'Algorithmic transit target: reallocate from private chauffeur/taxi to regional scheduled express bus.'
+          : 'Algorithmic transit target: reallocate to multi-day unlimited public transit network pass.',
+        disruptionFactor: isBudget ? 25 : 15,
+        cancellationTerms: 'Vendor terms apply upon purchase',
+        sourcingKind: 'HYPOTHETICAL_PROPOSAL',
+        isHypothetical: true,
+        isPriceVerified: false,
+        evidenceSource: 'TripGuard Algorithmic Solver',
+        catalogVersion: 'v2026.1',
+        retrievalTimestamp: nowIso,
+      },
+    ];
+  }
+
+  if (item.category === 'ACTIVITY') {
+    return [
+      {
+        id: `hyp-activity-${item._id}-free`,
+        category: 'ACTIVITY',
+        destination: destSafe,
+        name: `Hypothetical Self-Guided Walking Route (${destSafe})`,
+        provider: 'TripGuard Civic Model',
+        costMinor: 0,
+        tier: 'BUDGET',
+        rating: undefined,
+        safetyCertified: false,
+        distanceKmFromCenter: 1.0,
+        description: 'Algorithmic recommendation: substitute commercial paid sightseeing ticket with free public heritage grounds or civic viewpoint.',
+        disruptionFactor: 10,
+        cancellationTerms: 'Free public entry',
+        sourcingKind: 'HYPOTHETICAL_PROPOSAL',
+        isHypothetical: true,
+        isPriceVerified: false,
+        evidenceSource: 'TripGuard Algorithmic Solver',
+        catalogVersion: 'v2026.1',
+        retrievalTimestamp: nowIso,
+      },
+    ];
+  }
+
+  return [];
 }
 
 function evaluateReplacement(
   item: IItineraryItem,
   booking: IBooking | undefined,
   catalog: AlternativeCandidate[],
-  preferredTier: 'BUDGET' | 'STANDARD' | 'PREMIUM'
+  preferredTier: 'BUDGET' | 'STANDARD' | 'PREMIUM',
+  trip: ITrip
 ): ProposedModification | null {
-  const candidates = catalog.filter(
-    (c) => c.category === item.category && (preferredTier === 'BUDGET' || c.tier === preferredTier)
-  );
+  const candidates = getCandidatesForItem(item, catalog, preferredTier, trip.destination);
 
   if (candidates.length === 0) return null;
 
@@ -399,6 +521,13 @@ function evaluateReplacement(
 
   if (!bestCandidate || maxNetSaving <= 0) return null;
 
+  const savingStr = formatCurrencyAmount(maxNetSaving, trip.currency);
+  const justification = bestCandidate.isHypothetical
+    ? `Hypothetical target saving ${savingStr} by reallocating to an estimated budget tier.`
+    : `Saves ${savingStr} via vetted ${bestCandidate.sourcingKind === 'DEMO_FIXTURE' ? 'demo fixture' : 'catalog option'}${
+        bestCandidate.rating ? ` (${bestCandidate.rating}★)` : ''
+      }.`;
+
   return {
     actionType: 'REPLACE',
     targetType: item.category as any,
@@ -414,20 +543,45 @@ function evaluateReplacement(
     netSavingsMinor: maxNetSaving,
     disruptionScore: bestCandidate.disruptionFactor,
     travelImpactDescription: `Switches to ${bestCandidate.name} (${bestCandidate.description}). Distance: ${bestCandidate.distanceKmFromCenter}km.`,
-    justification: `Saves ₹${(maxNetSaving / 100).toLocaleString()} while retaining safety certification and certified 4.5+ guest rating.`,
+    justification,
     constraintValidated: true,
+    alternativeKind: bestCandidate.sourcingKind,
+    isHypothetical: bestCandidate.isHypothetical,
+    isPriceVerified: bestCandidate.isPriceVerified,
+    providerIdentity: bestCandidate.provider,
+    sourceId: bestCandidate.id,
+    evidenceSource: bestCandidate.evidenceSource,
   };
 }
 
 function evaluateRemovalOrFreeSwap(
   item: IItineraryItem,
   booking: IBooking | undefined,
-  catalog: AlternativeCandidate[]
+  catalog: AlternativeCandidate[],
+  trip: ITrip
 ): ProposedModification | null {
-  // Check if free alternative exists in catalog
-  const freeAlt = catalog.find(
+  // Check if free alternative exists in catalog, or synthesize honest proposal
+  const freeAlt: AlternativeCandidate = catalog.find(
     (c) => c.category === item.category && c.costMinor === 0
-  );
+  ) || {
+    id: `hyp-free-${item._id}`,
+    category: 'ACTIVITY' as const,
+    destination: trip.destination || 'Destination',
+    name: `Free Scenic Promenade & Civic Viewpoint (${item.location || trip.destination || 'Destination'})`,
+    provider: 'TripGuard Civic Model',
+    costMinor: 0,
+    tier: 'BUDGET' as const,
+    rating: undefined,
+    safetyCertified: false,
+    distanceKmFromCenter: 1.0,
+    description: 'Scenic civic walking tour and historical landmark viewpoint with zero admission fee.',
+    disruptionFactor: 10,
+    cancellationTerms: 'Free public entry',
+    sourcingKind: 'HYPOTHETICAL_PROPOSAL',
+    isHypothetical: true,
+    isPriceVerified: false,
+    evidenceSource: 'TripGuard Algorithmic Solver',
+  };
 
   let cancellationFeeMinor = 0;
   let expectedRefundMinor = 0;
@@ -456,13 +610,20 @@ function evaluateRemovalOrFreeSwap(
       netSavingsMinor: netSaving,
       disruptionScore: 15,
       travelImpactDescription: `Replaces paid admission with zero-cost ${freeAlt.name}.`,
-      justification: `Free admission avoids admission cost with zero compromise to scenic skyline experience.`,
+      justification: `Free admission avoids ticket cost while preserving scenic sightseeing.`,
       constraintValidated: true,
+      alternativeKind: freeAlt.sourcingKind,
+      isHypothetical: freeAlt.isHypothetical,
+      isPriceVerified: freeAlt.isPriceVerified,
+      providerIdentity: freeAlt.provider,
+      sourceId: freeAlt.id,
+      evidenceSource: freeAlt.evidenceSource,
     };
   }
 
   // Removal option
   const netSaving = originalRemainingMinor - cancellationFeeMinor + expectedRefundMinor;
+  const savingStr = formatCurrencyAmount(netSaving, trip.currency);
   return {
     actionType: 'REMOVE',
     targetType: 'ACTIVITY',
@@ -475,10 +636,14 @@ function evaluateRemovalOrFreeSwap(
     netSavingsMinor: netSaving,
     disruptionScore: 20,
     travelImpactDescription: `Removes optional activity '${item.title}' from day itinerary.`,
-    justification: `Activity is designated OPTIONAL by traveler. Removal frees ₹${(
-      netSaving / 100
-    ).toLocaleString()} in budget.`,
+    justification: `Activity is designated OPTIONAL by traveler. Removal frees ${savingStr} in budget.`,
     constraintValidated: true,
+    alternativeKind: 'HYPOTHETICAL_PROPOSAL',
+    isHypothetical: true,
+    isPriceVerified: true,
+    providerIdentity: 'TripGuard Optimizer',
+    sourceId: `remove-${item._id}`,
+    evidenceSource: 'TripGuard Constraint Solver',
   };
 }
 

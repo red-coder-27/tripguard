@@ -17,7 +17,7 @@ const createBookingSchema = z.object({
   bookingReference: z.string().default(''),
   totalCostMinor: z.number().int().min(0),
   paidAmountMinor: z.number().int().min(0).default(0),
-  currency: z.enum(['INR', 'USD', 'EUR', 'GBP']).default('INR'),
+  currency: z.string().length(3).regex(/^[A-Za-z]{3}$/).transform((v) => v.toUpperCase()).default('INR'),
   travelDate: z.string().transform((val) => new Date(val)),
   status: z
     .enum(['CONFIRMED', 'PENDING', 'CANCELLED', 'MODIFIED', 'MODIFICATION_PENDING_USER_ACTION'])

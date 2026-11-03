@@ -12,6 +12,15 @@ import {
 
 const API_BASE = '/api/v1';
 
+function normalizeUrl(url: string): string {
+  if (url.startsWith('/api/v1/')) return url;
+  if (url.startsWith('api/v1/')) return `/${url}`;
+  if (url.startsWith('/v1/')) return `${API_BASE}${url.substring(3)}`;
+  if (url.startsWith('v1/')) return `${API_BASE}/${url.substring(3)}`;
+  if (url.startsWith('/api/')) return url;
+  return `${API_BASE}${url.startsWith('/') ? url : `/${url}`}`;
+}
+
 function getAuthHeader(): Record<string, string> {
   const token = localStorage.getItem('tripguard_token');
   return token ? { Authorization: `Bearer ${token}` } : {};
@@ -28,13 +37,13 @@ async function handleResponse<T>(res: Response): Promise<T> {
 export const api = {
   // Generic HTTP helpers
   async get<T>(url: string): Promise<{ success: boolean; data: T }> {
-    const res = await fetch(`${API_BASE}${url.startsWith('/') ? url : `/${url}`}`, {
+    const res = await fetch(normalizeUrl(url), {
       headers: { ...getAuthHeader() },
     });
     return handleResponse(res);
   },
   async post<T>(url: string, body?: any): Promise<{ success: boolean; data: T }> {
-    const res = await fetch(`${API_BASE}${url.startsWith('/') ? url : `/${url}`}`, {
+    const res = await fetch(normalizeUrl(url), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
       body: body ? JSON.stringify(body) : undefined,
@@ -42,15 +51,23 @@ export const api = {
     return handleResponse(res);
   },
   async patch<T>(url: string, body?: any): Promise<{ success: boolean; data: T }> {
-    const res = await fetch(`${API_BASE}${url.startsWith('/') ? url : `/${url}`}`, {
+    const res = await fetch(normalizeUrl(url), {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
       body: body ? JSON.stringify(body) : undefined,
     });
     return handleResponse(res);
   },
+  async put<T>(url: string, body?: any): Promise<{ success: boolean; data: T }> {
+    const res = await fetch(normalizeUrl(url), {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    return handleResponse(res);
+  },
   async delete<T>(url: string): Promise<{ success: boolean; message?: string }> {
-    const res = await fetch(`${API_BASE}${url.startsWith('/') ? url : `/${url}`}`, {
+    const res = await fetch(normalizeUrl(url), {
       method: 'DELETE',
       headers: { ...getAuthHeader() },
     });
@@ -324,7 +341,9 @@ export const api = {
   // Simulator
   async evaluateSimulation(
     tripId: string,
-    adjustments: any[]
+    adjustments: any[],
+    simulatedBudgetMinor?: number,
+    extraDisruptionCostMinor?: number
   ): Promise<{
     success: boolean;
     simulationNotice: string;
@@ -333,11 +352,12 @@ export const api = {
     netDeltaMinor: number;
     isSavings: boolean;
     adjustedItemsCount: number;
+    simulatedBudgetApplied?: number | null;
   }> {
     const res = await fetch(`${API_BASE}/simulator/trip/${tripId}/evaluate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
-      body: JSON.stringify({ adjustments }),
+      body: JSON.stringify({ adjustments, simulatedBudgetMinor, extraDisruptionCostMinor }),
     });
     return handleResponse(res);
   },

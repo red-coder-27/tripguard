@@ -1,6 +1,12 @@
 // Core Domain Types for TripGuard
 
-export type Currency = 'INR' | 'USD' | 'EUR' | 'GBP';
+export type Currency = string;
+
+export type AlternativeSourcingKind = 
+  | 'REAL_PROVIDER'
+  | 'VERIFIED_CATALOG'
+  | 'HYPOTHETICAL_PROPOSAL'
+  | 'DEMO_FIXTURE';
 
 export type ActivityPriority = 'MUST_DO' | 'FLEXIBLE' | 'OPTIONAL';
 
@@ -76,6 +82,12 @@ export interface ProposedModification {
   travelImpactDescription: string;
   justification: string;
   constraintValidated: boolean;
+  alternativeKind?: AlternativeSourcingKind;
+  isHypothetical?: boolean;
+  isPriceVerified?: boolean;
+  providerIdentity?: string;
+  sourceId?: string;
+  evidenceSource?: string;
 }
 
 export interface RecoveryStrategyResult {

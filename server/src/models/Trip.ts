@@ -5,6 +5,8 @@ export interface ITrip extends Document {
   userId: mongoose.Types.ObjectId;
   name: string;
   destination: string;
+  destinationLatitude?: number;
+  destinationLongitude?: number;
   startDate: Date;
   endDate: Date;
   travelersCount: number;
@@ -27,12 +29,14 @@ const TripSchema = new Schema<ITrip>(
     userId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
     name: { type: String, required: true, trim: true },
     destination: { type: String, required: true, trim: true },
+    destinationLatitude: { type: Number },
+    destinationLongitude: { type: Number },
     startDate: { type: Date, required: true },
     endDate: { type: Date, required: true },
     travelersCount: { type: Number, default: 1, min: 1 },
     totalBudgetMinor: { type: Number, required: true, min: 0 },
     emergencyReserveMinor: { type: Number, default: 0, min: 0 },
-    currency: { type: String, default: 'INR', enum: ['INR', 'USD', 'EUR', 'GBP'] },
+    currency: { type: String, default: 'INR', uppercase: true, trim: true },
     status: {
       type: String,
       default: 'ACTIVE',

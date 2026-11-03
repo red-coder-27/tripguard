@@ -275,7 +275,7 @@ export const ExpensesPage: React.FC = () => {
               required
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="e.g. Narita Airport Limousine Express"
+              placeholder="e.g. Airport Express Rail Transfer"
               className="w-full text-xs px-3 py-2.5 rounded-xl border border-slate-300"
             />
           </div>

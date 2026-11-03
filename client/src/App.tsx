@@ -1,25 +1,35 @@
-import React, { useState } from 'react';
+import React, { useState, Suspense, lazy } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext.js';
 import { TripProvider } from './context/TripContext.js';
 import { Sidebar } from './components/layout/Sidebar.js';
 import { Header } from './components/layout/Header.js';
 
-import { AuthPage } from './pages/AuthPage.js';
-import { OverviewPage } from './pages/OverviewPage.js';
-import { MyTripsPage } from './pages/MyTripsPage.js';
-import { TripDetailsPage } from './pages/TripDetailsPage.js';
-import { ItineraryPage } from './pages/ItineraryPage.js';
-import { ExpensesPage } from './pages/ExpensesPage.js';
-import { BookingsPage } from './pages/BookingsPage.js';
-import { RecoveryCenterPage } from './pages/RecoveryCenterPage.js';
-import { RecoveryLedgerPage } from './pages/RecoveryLedgerPage.js';
-import { SimulatorPage } from './pages/SimulatorPage.js';
-import { AnalyticsPage } from './pages/AnalyticsPage.js';
-import { CopilotPage } from './pages/CopilotPage.js';
-import { SettingsPage } from './pages/SettingsPage.js';
-import { TripMapPage } from './pages/TripMapPage.js';
-import { DisruptionsPage } from './pages/DisruptionsPage.js';
-import { TravelerToolsPage } from './pages/TravelerToolsPage.js';
+// Lazy-loaded page components for optimal route-based bundle splitting
+const AuthPage = lazy(() => import('./pages/AuthPage.js').then((m) => ({ default: m.AuthPage })));
+const OverviewPage = lazy(() => import('./pages/OverviewPage.js').then((m) => ({ default: m.OverviewPage })));
+const MyTripsPage = lazy(() => import('./pages/MyTripsPage.js').then((m) => ({ default: m.MyTripsPage })));
+const TripDetailsPage = lazy(() => import('./pages/TripDetailsPage.js').then((m) => ({ default: m.TripDetailsPage })));
+const ItineraryPage = lazy(() => import('./pages/ItineraryPage.js').then((m) => ({ default: m.ItineraryPage })));
+const ExpensesPage = lazy(() => import('./pages/ExpensesPage.js').then((m) => ({ default: m.ExpensesPage })));
+const BookingsPage = lazy(() => import('./pages/BookingsPage.js').then((m) => ({ default: m.BookingsPage })));
+const RecoveryCenterPage = lazy(() => import('./pages/RecoveryCenterPage.js').then((m) => ({ default: m.RecoveryCenterPage })));
+const RecoveryLedgerPage = lazy(() => import('./pages/RecoveryLedgerPage.js').then((m) => ({ default: m.RecoveryLedgerPage })));
+const SimulatorPage = lazy(() => import('./pages/SimulatorPage.js').then((m) => ({ default: m.SimulatorPage })));
+const AnalyticsPage = lazy(() => import('./pages/AnalyticsPage.js').then((m) => ({ default: m.AnalyticsPage })));
+const CopilotPage = lazy(() => import('./pages/CopilotPage.js').then((m) => ({ default: m.CopilotPage })));
+const SettingsPage = lazy(() => import('./pages/SettingsPage.js').then((m) => ({ default: m.SettingsPage })));
+const TripMapPage = lazy(() => import('./pages/TripMapPage.js').then((m) => ({ default: m.TripMapPage })));
+const DisruptionsPage = lazy(() => import('./pages/DisruptionsPage.js').then((m) => ({ default: m.DisruptionsPage })));
+const TravelerToolsPage = lazy(() => import('./pages/TravelerToolsPage.js').then((m) => ({ default: m.TravelerToolsPage })));
+
+const PageLoadingFallback: React.FC = () => (
+  <div className="py-24 flex flex-col items-center justify-center">
+    <div className="w-8 h-8 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mb-3" />
+    <span className="text-xs font-semibold tracking-wider uppercase text-slate-500">
+      Loading TripGuard Module...
+    </span>
+  </div>
+);
 
 const MainApp: React.FC = () => {
   const { isAuthenticated, isLoading } = useAuth();
@@ -40,7 +50,17 @@ const MainApp: React.FC = () => {
   }
 
   if (!isAuthenticated) {
-    return <AuthPage />;
+    return (
+      <Suspense
+        fallback={
+          <div className="min-h-screen bg-[#101B2D] flex items-center justify-center text-white">
+            <div className="w-10 h-10 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+          </div>
+        }
+      >
+        <AuthPage />
+      </Suspense>
+    );
   }
 
   const getPageTitle = (path: string) => {
@@ -128,8 +148,8 @@ const MainApp: React.FC = () => {
       />
 
       {/* Main Workspace Area */}
-      <div className="flex-1 flex flex-col min-w-0">
-        {/* Sticky Header */}
+      <div className="flex-1 flex flex-col min-w-0 h-screen overflow-y-auto">
+        {/* Sticky Header with Context Bar and Portals */}
         <Header
           onOpenMobileSidebar={() => setIsMobileSidebarOpen(true)}
           pageTitle={getPageTitle(currentPath)}
@@ -137,16 +157,16 @@ const MainApp: React.FC = () => {
           onNavigate={setCurrentPath}
         />
 
-        {/* Workspace Body */}
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto">
-          {renderCurrentPage()}
+        {/* Dynamic Page Content with Suspense Boundary */}
+        <main className="p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto flex-1">
+          <Suspense fallback={<PageLoadingFallback />}>{renderCurrentPage()}</Suspense>
         </main>
       </div>
     </div>
   );
 };
 
-export const App: React.FC = () => {
+export function App() {
   return (
     <AuthProvider>
       <TripProvider>
@@ -154,6 +174,6 @@ export const App: React.FC = () => {
       </TripProvider>
     </AuthProvider>
   );
-};
+}
 
 export default App;

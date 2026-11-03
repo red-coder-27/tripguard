@@ -18,7 +18,9 @@ const adjustmentSchema = z.object({
 });
 
 const simulatorPayloadSchema = z.object({
-  adjustments: z.array(adjustmentSchema),
+  adjustments: z.array(adjustmentSchema).default([]),
+  simulatedBudgetMinor: z.number().int().min(0).optional(),
+  extraDisruptionCostMinor: z.number().int().min(0).optional(),
 });
 
 // Evaluate what-if simulation scenario without database mutation
@@ -42,9 +44,28 @@ router.post(
 
       const originalForecast = calculateFinancialForecast(trip, items, bookings, expenses);
 
-      // Clone items in memory
+      // Clone items and expenses in memory
       const simulatedItems = items.map((i) => i.toObject());
-      const { adjustments } = req.body;
+      const simulatedExpenses = expenses.map((e) => e.toObject());
+      const { adjustments, simulatedBudgetMinor, extraDisruptionCostMinor } = req.body;
+
+      if (typeof extraDisruptionCostMinor === 'number' && extraDisruptionCostMinor > 0) {
+        simulatedExpenses.push({
+          _id: 'sim-extra-disruption' as any,
+          tripId: trip._id,
+          userId: trip.userId,
+          category: 'MISC' as any,
+          amountMinor: extraDisruptionCostMinor,
+          currency: trip.currency,
+          date: new Date(),
+          description: 'Simulated Disruption / Surge Cost',
+          paymentMethod: 'OTHER',
+          isSettled: false,
+          receiptAttached: false,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        } as any);
+      }
 
       for (const adj of adjustments) {
         const itemIdx = simulatedItems.findIndex(
@@ -64,11 +85,18 @@ router.post(
         }
       }
 
+      // Clone trip for custom simulated budget
+      const tripForSim = trip.toObject();
+      if (typeof simulatedBudgetMinor === 'number' && simulatedBudgetMinor > 0) {
+        tripForSim.totalBudgetMinor = simulatedBudgetMinor;
+        tripForSim.emergencyReserveMinor = Math.round(simulatedBudgetMinor * 0.1);
+      }
+
       const simulatedForecast = calculateFinancialForecast(
-        trip,
+        tripForSim as any,
         simulatedItems as any,
         bookings,
-        expenses
+        simulatedExpenses as any
       );
 
       const netDeltaMinor =
@@ -82,6 +110,7 @@ router.post(
         netDeltaMinor,
         isSavings: netDeltaMinor > 0,
         adjustedItemsCount: adjustments.length,
+        simulatedBudgetApplied: typeof simulatedBudgetMinor === 'number' ? simulatedBudgetMinor : null,
       });
     } catch (err: any) {
       res.status(500).json({ success: false, error: err.message });

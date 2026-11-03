@@ -35,7 +35,7 @@ const AlternativeOptionSchema = new Schema<IAlternativeOption>(
     name: { type: String, required: true, trim: true },
     provider: { type: String, required: true, trim: true },
     costMinor: { type: Number, required: true, min: 0 },
-    currency: { type: String, default: 'INR', enum: ['INR', 'USD', 'EUR', 'GBP'] },
+    currency: { type: String, default: 'INR', uppercase: true, trim: true },
     tier: {
       type: String,
       default: 'STANDARD',

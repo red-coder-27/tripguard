@@ -19,6 +19,7 @@ import copilotRoutes from './routes/copilot.routes.js';
 import geospatialRoutes from './routes/geospatial.routes.js';
 import disruptionRoutes from './routes/disruption.routes.js';
 import travelerToolsRoutes from './routes/travelerTools.routes.js';
+import integrationDiagnosticsRoutes from './routes/integrationDiagnostics.routes.js';
 
 const app = express();
 
@@ -26,22 +27,46 @@ const app = express();
 app.use(helmet());
 
 // CORS configuration
+const allowedOrigins = env.CORS_ORIGIN.split(',').map((o) => o.trim());
+
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Allow requests with no origin (like mobile apps, curl, or dev tools)
+      // Allow requests with no origin (e.g. mobile clients, server-to-server, curl)
       if (!origin) return callback(null, true);
-      // Allow localhost or configured origin
-      if (origin.startsWith('http://localhost') || origin === env.CORS_ORIGIN) {
+
+      // In development or test, allow any localhost or 127.0.0.1 port
+      if (env.NODE_ENV !== 'production') {
+        if (
+          origin.startsWith('http://localhost') ||
+          origin.startsWith('http://127.0.0.1') ||
+          allowedOrigins.includes(origin)
+        ) {
+          return callback(null, true);
+        }
+      }
+
+      // Check explicit allowed origins
+      if (allowedOrigins.includes(origin)) {
         return callback(null, true);
       }
-      return callback(null, true); // Dev-friendly permissive
+
+      // Allow Vercel preview URLs if enabled (strictly restricted to TripGuard deployments)
+      if (
+        env.ALLOW_VERCEL_PREVIEWS === 'true' &&
+        /^https:\/\/tripguard(-[a-zA-Z0-9]+)*\.vercel\.app$/.test(origin)
+      ) {
+        return callback(null, true);
+      }
+
+      // Reject unauthorized origins explicitly
+      return callback(new Error('CORS origin unauthorized by TripGuard security policy'));
     },
     credentials: true,
   })
 );
 
-// Rate Limiting
+// Serverless-safe Rate Limiting
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 1000, // Max 1000 requests per 15 minutes
@@ -61,6 +86,7 @@ app.get('/api/health', (req, res) => {
     timestamp: new Date().toISOString(),
     service: 'TripGuard Adaptive Intelligence API',
     version: '1.0.0',
+    environment: env.NODE_ENV,
   });
 });
 
@@ -79,9 +105,10 @@ app.use('/api/v1/copilot', copilotRoutes);
 app.use('/api/v1/geo', geospatialRoutes);
 app.use('/api/v1/disruptions', disruptionRoutes);
 app.use('/api/v1/traveler-tools', travelerToolsRoutes);
+app.use('/api', integrationDiagnosticsRoutes);
 
 // Centralized Error Handling
 app.use(errorHandler);
 
+export { app };
 export default app;
-

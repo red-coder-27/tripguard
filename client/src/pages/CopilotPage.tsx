@@ -47,6 +47,19 @@ I have full access to your authoritative financial forecast and deterministic re
     scrollToBottom();
   }, [messages, isSending]);
 
+  // Reset conversation context when switching trips
+  useEffect(() => {
+    if (!activeTrip) return;
+    setMessages([
+      {
+        role: 'assistant',
+        content: `Hello! I am **TripGuard Copilot**, your travel budget recovery advisor for **${activeTrip.name}** (${activeTrip.destination}).\n\nI have full access to your authoritative financial forecast and deterministic recovery alternatives. Ask me why your trip is over budget, compare your recovery strategies, or explore specific accommodation and transit replacements!`,
+        source: 'DETERMINISTIC_FALLBACK',
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      },
+    ]);
+  }, [activeTrip?._id]);
+
   const suggestedQuestions = [
     'Why is my trip over budget?',
     'Compare my recovery strategies',

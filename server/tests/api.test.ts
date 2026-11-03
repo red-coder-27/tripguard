@@ -10,7 +10,7 @@ describe('TripGuard End-to-End API Suite', () => {
 
   beforeAll(async () => {
     await connectDB();
-  });
+  }, 30000);
 
   afterAll(async () => {
     await disconnectDB();

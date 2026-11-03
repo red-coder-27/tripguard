@@ -69,3 +69,4 @@ describe('GeoGuard Geospatial Engine Suite', () => {
     expect(taxi.carbonEmissionKg).toBeGreaterThan(metro.carbonEmissionKg);
   });
 });
+

@@ -80,7 +80,15 @@ export const TripProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (found.forecast) {
         setForecast(found.forecast);
       } else {
-        api.getForecast(found._id).then((res) => setForecast(res.forecast));
+        setForecast(null); // Clear previous trip's forecast immediately to prevent stale numbers
+        api.getForecast(found._id).then((res) => {
+          setActiveTrip((current) => {
+            if (current?._id === id) {
+              setForecast(res.forecast);
+            }
+            return current;
+          });
+        });
       }
     }
   };

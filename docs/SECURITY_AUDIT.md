@@ -70,10 +70,22 @@ TripGuard incorporates defense-in-depth financial and application security princ
 
 ---
 
-## 5. Security Checklist & Test Results
+## 5. External Provider API Security & Sanitization
+
+- **Zero Client-Side Exposure of Private Keys:** Private keys for Google Gemini, Geoapify, and OpenWeather are stored strictly in the root/server `.env` file and queried solely by backend proxy clients (`server/src/providers/`).
+- **Database Connection URI Sanitization:** `server/src/config/db.ts` strips database usernames, passwords, and connection strings prior to outputting connection status messages to stdout.
+- **Origin-Restricted Browser Key:** MapTiler keys use HTTP Referer restrictions (`http://localhost:5173` and allowed domains) preventing unauthorized third-party quota consumption.
+- **Strict Git Exclusions:** `.gitignore` enforces exclusion of `.env`, `client/.env`, `server/.env`, and build artifacts across both workspaces.
+
+---
+
+## 6. Security Checklist & Test Results
 
 - [x] All database queries use parameterization.
 - [x] Password fields have `select: false` on Mongoose queries to prevent accidental leakage in JSON responses.
 - [x] Passwords hashed with bcrypt (salt rounds = 10).
 - [x] Rate limiting friendly headers and error handling.
 - [x] No sensitive credentials checked into version control.
+- [x] External API credentials proxied through backend with 5s timeouts and deterministic fallbacks.
+- [x] Database logs sanitized to hide cluster credentials and connection tokens.
+

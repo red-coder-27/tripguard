@@ -6,6 +6,7 @@ import { ItineraryItem } from '../models/ItineraryItem.js';
 import { calculateFinancialForecast } from '../financial/forecasting.js';
 import { Expense } from '../models/Expense.js';
 import { getDestinationWeatherForecast, TripDisruptionAlert } from '../disruption/weatherService.js';
+import { GeoapifyProvider } from '../providers/geoapify.provider.js';
 
 const router = Router();
 
@@ -16,15 +17,43 @@ router.get('/trip/:tripId/weather', authenticate, async (req: AuthRequest, res: 
     const trip = await Trip.findOne({ _id: tripId, userId: req.user!.id });
     if (!trip) return res.status(404).json({ success: false, error: 'Trip not found or unauthorized' });
 
-    // Find destination center (default Tokyo)
-    const firstItemWithCoord = await ItineraryItem.findOne({
-      tripId,
-      latitude: { $ne: null },
-      longitude: { $ne: null },
-    });
+    // Resolve destination coordinates dynamically
+    let lat = trip.destinationLatitude;
+    let lng = trip.destinationLongitude;
+    if (typeof lat !== 'number' || typeof lng !== 'number') {
+      const firstItemWithCoord = await ItineraryItem.findOne({
+        tripId,
+        latitude: { $ne: null },
+        longitude: { $ne: null },
+      });
+      if (firstItemWithCoord && typeof firstItemWithCoord.latitude === 'number' && typeof firstItemWithCoord.longitude === 'number') {
+        lat = firstItemWithCoord.latitude;
+        lng = firstItemWithCoord.longitude;
+      } else {
+        try {
+          const geo = await GeoapifyProvider.geocode(trip.destination);
+          if (geo.isResolved && typeof geo.lat === 'number' && typeof geo.lon === 'number') {
+            lat = geo.lat;
+            lng = geo.lon;
+          }
+        } catch {
+          // Leave lat and lng undefined
+        }
+      }
+    }
 
-    const lat = firstItemWithCoord?.latitude || 35.6938;
-    const lng = firstItemWithCoord?.longitude || 139.7034;
+    if (typeof lat !== 'number' || typeof lng !== 'number') {
+      return res.json({
+        success: true,
+        data: {
+          destination: trip.destination,
+          coordinates: null,
+          isResolved: false,
+          forecast: [],
+          message: 'Destination coordinates could not be resolved.',
+        },
+      });
+    }
 
     const daysCount = Math.max(
       1,
@@ -60,6 +89,8 @@ router.get('/trip/:tripId/alerts', authenticate, async (req: AuthRequest, res: R
     const forecast = calculateFinancialForecast(trip, items, bookings, expenses);
     const alerts: TripDisruptionAlert[] = [];
 
+    const sym = trip.currency === 'INR' ? '₹' : trip.currency === 'USD' ? '$' : trip.currency === 'EUR' ? '€' : trip.currency === 'GBP' ? '£' : `${trip.currency} `;
+
     // 1. Budget overrun alert
     if (forecast.riskStatus === 'OVER_BUDGET') {
       alerts.push({
@@ -67,7 +98,7 @@ router.get('/trip/:tripId/alerts', authenticate, async (req: AuthRequest, res: R
         type: 'BUDGET_OVERRUN',
         severity: 'HIGH',
         title: 'Projected Budget Infeasibility Detected',
-        description: `Your trip is projected to exceed the budget by ₹${(
+        description: `Your trip is projected to exceed the budget by ${sym}${(
           forecast.overspendingGapMinor / 100
         ).toLocaleString()}. Review deterministic recovery solutions immediately to rebalance cash reserves.`,
         actionUrl: '/recovery',
@@ -103,20 +134,42 @@ router.get('/trip/:tripId/alerts', authenticate, async (req: AuthRequest, res: R
       }
     }
 
-    // 3. Weather Disruption Alerts
-    const weatherList = await getDestinationWeatherForecast(35.6938, 139.7034, 7);
-    const rainDay = weatherList.find((w) => w.isOutdoorWarning);
-    if (rainDay) {
-      alerts.push({
-        id: `alert-weather-${rainDay.dayNumber}`,
-        type: 'WEATHER_DISRUPTION',
-        severity: 'MEDIUM',
-        title: `Precipitation Alert: Day ${rainDay.dayNumber} (${rainDay.condition})`,
-        description: `${rainDay.precipitationProbability}% chance of rain. ${rainDay.recommendation}`,
-        actionUrl: '/itinerary',
-        actionText: 'View Day Schedule',
-        timestamp: new Date().toISOString(),
-      });
+    // 3. Weather Disruption Alerts (anchored to trip's real destination coordinates)
+    let weatherLat = trip.destinationLatitude;
+    let weatherLng = trip.destinationLongitude;
+    if (typeof weatherLat !== 'number' || typeof weatherLng !== 'number') {
+      const firstItem = items.find((i) => typeof i.latitude === 'number' && typeof i.longitude === 'number');
+      if (firstItem && typeof firstItem.latitude === 'number' && typeof firstItem.longitude === 'number') {
+        weatherLat = firstItem.latitude;
+        weatherLng = firstItem.longitude;
+      } else {
+        try {
+          const geo = await GeoapifyProvider.geocode(trip.destination);
+          if (geo.isResolved && typeof geo.lat === 'number' && typeof geo.lon === 'number') {
+            weatherLat = geo.lat;
+            weatherLng = geo.lon;
+          }
+        } catch {
+          // Unresolved
+        }
+      }
+    }
+
+    if (typeof weatherLat === 'number' && typeof weatherLng === 'number') {
+      const weatherList = await getDestinationWeatherForecast(weatherLat, weatherLng, 7);
+      const rainDay = weatherList.find((w) => w.isOutdoorWarning);
+      if (rainDay) {
+        alerts.push({
+          id: `alert-weather-${rainDay.dayNumber}`,
+          type: 'WEATHER_DISRUPTION',
+          severity: 'MEDIUM',
+          title: `Precipitation Alert: Day ${rainDay.dayNumber} (${rainDay.condition})`,
+          description: `${rainDay.precipitationProbability}% chance of rain in ${trip.destination}. ${rainDay.recommendation}`,
+          actionUrl: '/itinerary',
+          actionText: 'View Day Schedule',
+          timestamp: new Date().toISOString(),
+        });
+      }
     }
 
     res.json({

@@ -13,7 +13,7 @@ const registerSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
   email: z.string().email('Invalid email address'),
   password: z.string().min(6, 'Password must be at least 6 characters'),
-  baseCurrency: z.enum(['INR', 'USD', 'EUR', 'GBP']).default('INR'),
+  baseCurrency: z.string().length(3).regex(/^[A-Za-z]{3}$/).transform((v) => v.toUpperCase()).default('INR'),
 });
 
 const loginSchema = z.object({
@@ -135,6 +135,37 @@ router.put('/settings', authenticate, async (req: AuthRequest, res: Response) =>
 
     await user.save();
     res.json({ success: true, user });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Change Password
+const changePasswordSchema = z.object({
+  currentPassword: z.string().min(1, 'Current password is required'),
+  newPassword: z.string().min(6, 'New password must be at least 6 characters'),
+});
+
+router.post('/change-password', authenticate, validateBody(changePasswordSchema), async (req: AuthRequest, res: Response) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    const user = await User.findById(req.user!.id);
+    if (!user) {
+      res.status(404).json({ success: false, error: 'User not found.' });
+      return;
+    }
+
+    const isMatch = await user.comparePassword(currentPassword);
+    if (!isMatch) {
+      res.status(400).json({ success: false, error: 'Current password does not match.' });
+      return;
+    }
+
+    const salt = await bcrypt.genSalt(10);
+    user.passwordHash = await bcrypt.hash(newPassword, salt);
+    await user.save();
+
+    res.json({ success: true, message: 'Password updated successfully.' });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err.message });
   }

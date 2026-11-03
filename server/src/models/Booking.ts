@@ -40,7 +40,7 @@ const BookingSchema = new Schema<IBooking>(
     totalCostMinor: { type: Number, required: true, min: 0 },
     paidAmountMinor: { type: Number, default: 0, min: 0 },
     outstandingAmountMinor: { type: Number, default: 0, min: 0 },
-    currency: { type: String, default: 'INR', enum: ['INR', 'USD', 'EUR', 'GBP'] },
+    currency: { type: String, default: 'INR', uppercase: true, trim: true },
     travelDate: { type: Date, required: true },
     status: {
       type: String,

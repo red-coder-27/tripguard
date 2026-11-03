@@ -31,3 +31,4 @@ const TripMemberSchema = new Schema<ITripMember>(
 );
 
 export const TripMember = mongoose.model<ITripMember>('TripMember', TripMemberSchema);
+

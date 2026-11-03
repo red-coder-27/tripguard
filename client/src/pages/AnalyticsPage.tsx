@@ -13,7 +13,7 @@ import {
   AreaChart,
   Area,
 } from 'recharts';
-import { BarChart3, TrendingUp, DollarSign, Award, PieChart as PieIcon } from 'lucide-react';
+import { BarChart3, TrendingUp, DollarSign, Award, PieChart as PieIcon, Download } from 'lucide-react';
 import { useTrip } from '../context/TripContext.js';
 import { api } from '../services/api.js';
 import { StatCard } from '../components/common/StatCard.js';
@@ -49,6 +49,41 @@ export const AnalyticsPage: React.FC = () => {
     loadAnalytics();
   }, [loadAnalytics]);
 
+  const handleExportReport = () => {
+    if (!activeTrip || !data) return;
+    const report = {
+      tripName: activeTrip.name,
+      destination: activeTrip.destination,
+      currency: activeTrip.currency,
+      exportedAt: new Date().toISOString(),
+      financialSummary: {
+        totalBudget: activeTrip.totalBudgetMinor / 100,
+        emergencyReserve: (activeTrip.emergencyReserveMinor || 0) / 100,
+        projectedFinalCost: (data.forecast?.projectedFinalCostMinor || 0) / 100,
+        settledExpenditures: (data.forecast?.settledExpensesMinor || 0) / 100,
+        outstandingBookings: (data.forecast?.outstandingBookingsMinor || 0) / 100,
+        futureEstimates: (data.forecast?.futureEstimatedExpensesMinor || 0) / 100,
+        recoverySavingsVerified: (data.recoverySavingsMinor || 0) / 100,
+        riskStatus: data.forecast?.riskStatus || 'HEALTHY',
+      },
+      categoryBreakdown: (data.categoryBreakdown || []).map((c) => ({
+        category: c.category,
+        amount: c.amountMinor / 100,
+      })),
+      dailyTrend: (data.dailyTrend || []).map((d) => ({
+        date: d.date,
+        amount: d.amountMinor / 100,
+      })),
+    };
+    const blob = new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `TripGuard-Financial-Audit-${activeTrip.name.replace(/\s+/g, '-')}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   if (!activeTrip) {
     return <div className="p-8 text-center text-slate-500">Please select a trip first.</div>;
   }
@@ -58,21 +93,30 @@ export const AnalyticsPage: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <div className="flex items-center gap-2">
-          <span className="p-1 rounded-lg bg-emerald-100 text-emerald-800">
-            <BarChart3 className="w-4 h-4 text-emerald-600" />
-          </span>
-          <span className="text-xs font-bold uppercase tracking-wider text-emerald-700">
-            Authoritative Financial Analytics
-          </span>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-2">
+            <span className="p-1 rounded-lg bg-emerald-100 text-emerald-800">
+              <BarChart3 className="w-4 h-4 text-emerald-600" />
+            </span>
+            <span className="text-xs font-bold uppercase tracking-wider text-emerald-700">
+              Authoritative Financial Analytics
+            </span>
+          </div>
+          <h1 className="text-2xl font-bold tracking-tight text-[#172033] mt-1">
+            Travel Analytics: {activeTrip.name}
+          </h1>
+          <p className="text-xs text-[#64748B] mt-0.5">
+            Comprehensive breakdown of settled expenses, category distribution, and recovery efficacy.
+          </p>
         </div>
-        <h1 className="text-2xl font-bold tracking-tight text-[#172033] mt-1">
-          Travel Analytics: {activeTrip.name}
-        </h1>
-        <p className="text-xs text-[#64748B] mt-0.5">
-          Comprehensive breakdown of settled expenses, category distribution, and recovery efficacy.
-        </p>
+
+        <button
+          onClick={handleExportReport}
+          className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-all shadow-sm self-start sm:self-auto"
+        >
+          <Download className="w-3.5 h-3.5" /> Export Audit Statement
+        </button>
       </div>
 
       {/* Summary KPI Cards */}

@@ -148,4 +148,115 @@ router.delete('/:id', authenticate, async (req: AuthRequest, res: Response) => {
   }
 });
 
+// Helper to convert "HH:MM" to minutes from midnight
+function timeToMinutes(t: string): number {
+  if (!t || !t.includes(':')) return 0;
+  const [h, m] = t.split(':').map(Number);
+  return (h || 0) * 60 + (m || 0);
+}
+
+// GET /api/v1/itineraries/trip/:tripId/conflicts - Detect scheduling overlaps
+router.get('/trip/:tripId/conflicts', authenticate, async (req: AuthRequest, res: Response) => {
+  try {
+    const trip = await Trip.findOne({ _id: req.params.tripId, userId: req.user!.id });
+    if (!trip) {
+      res.status(404).json({ success: false, error: 'Trip not found or unauthorized.' });
+      return;
+    }
+
+    const items = await ItineraryItem.find({ tripId: trip._id, isRemoved: false }).sort({
+      dayNumber: 1,
+      startTime: 1,
+    });
+
+    // Group items by day
+    const byDay: Record<number, typeof items> = {};
+    for (const item of items) {
+      if (!byDay[item.dayNumber]) byDay[item.dayNumber] = [];
+      byDay[item.dayNumber].push(item);
+    }
+
+    const conflicts: Array<{
+      dayNumber: number;
+      itemA: { id: string; title: string; timeRange: string };
+      itemB: { id: string; title: string; timeRange: string };
+      message: string;
+    }> = [];
+
+    for (const [dayStr, dayItems] of Object.entries(byDay)) {
+      const dayNum = Number(dayStr);
+      for (let i = 0; i < dayItems.length; i++) {
+        for (let j = i + 1; j < dayItems.length; j++) {
+          const a = dayItems[i];
+          const b = dayItems[j];
+          const startA = timeToMinutes(a.startTime);
+          const endA = timeToMinutes(a.endTime);
+          const startB = timeToMinutes(b.startTime);
+          const endB = timeToMinutes(b.endTime);
+
+          // Check overlap: startA < endB && startB < endA
+          if (startA < endB && startB < endA) {
+            conflicts.push({
+              dayNumber: dayNum,
+              itemA: { id: a._id.toString(), title: a.title, timeRange: `${a.startTime} - ${a.endTime}` },
+              itemB: { id: b._id.toString(), title: b.title, timeRange: `${b.startTime} - ${b.endTime}` },
+              message: `Time conflict on Day ${dayNum}: "${a.title}" (${a.startTime}-${a.endTime}) overlaps with "${b.title}" (${b.startTime}-${b.endTime}).`,
+            });
+          }
+        }
+      }
+    }
+
+    res.json({
+      success: true,
+      hasConflicts: conflicts.length > 0,
+      conflictCount: conflicts.length,
+      conflicts,
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// POST /api/v1/itineraries/reorder - Batch update item days and times
+const reorderSchema = z.object({
+  tripId: z.string().min(1),
+  items: z.array(
+    z.object({
+      id: z.string().min(1),
+      dayNumber: z.number().int().min(1),
+      startTime: z.string().optional(),
+      endTime: z.string().optional(),
+    })
+  ),
+});
+
+router.post('/reorder', authenticate, validateBody(reorderSchema), async (req: AuthRequest, res: Response) => {
+  try {
+    const { tripId, items } = req.body;
+    const trip = await Trip.findOne({ _id: tripId, userId: req.user!.id });
+    if (!trip) {
+      res.status(404).json({ success: false, error: 'Trip not found or unauthorized.' });
+      return;
+    }
+
+    await Promise.all(
+      items.map(async (entry: { id: string; dayNumber: number; startTime?: string; endTime?: string }) => {
+        const updateData: any = { dayNumber: entry.dayNumber };
+        if (entry.startTime) updateData.startTime = entry.startTime;
+        if (entry.endTime) updateData.endTime = entry.endTime;
+        return ItineraryItem.findOneAndUpdate({ _id: entry.id, tripId }, updateData);
+      })
+    );
+
+    // Invalidate stale recovery runs
+    await RecoveryRun.updateMany({ tripId: trip._id, isStale: false }, { isStale: true });
+
+    const updated = await ItineraryItem.find({ tripId, isRemoved: false }).sort({ dayNumber: 1, startTime: 1 });
+    res.json({ success: true, items: updated });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 export default router;

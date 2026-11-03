@@ -3,6 +3,9 @@ import react from '@vitejs/plugin-react';
 
 export default defineConfig({
   plugins: [react()],
+  optimizeDeps: {
+    exclude: ['maplibre-gl'],
+  },
   server: {
     port: 5173,
     proxy: {
@@ -12,5 +15,16 @@ export default defineConfig({
       },
     },
   },
+  build: {
+    chunkSizeWarningLimit: 1200,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vendor-icons': ['lucide-react'],
+          'vendor-maps': ['maplibre-gl', 'leaflet'],
+          'vendor-charts': ['recharts'],
+        },
+      },
+    },
+  },
 });
-

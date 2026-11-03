@@ -19,6 +19,14 @@ import { formatCurrency, formatDate } from '../utils/formatters.js';
 export const ItineraryPage: React.FC = () => {
   const { activeTrip, forecast, refreshActiveTrip } = useTrip();
   const [items, setItems] = useState<ItineraryItem[]>([]);
+  const [conflicts, setConflicts] = useState<
+    Array<{
+      dayNumber: number;
+      itemA: { id: string; title: string; timeRange: string };
+      itemB: { id: string; title: string; timeRange: string };
+      message: string;
+    }>
+  >([]);
   const [selectedDay, setSelectedDay] = useState<number>(1);
   const [isLoading, setIsLoading] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -40,8 +48,20 @@ export const ItineraryPage: React.FC = () => {
     if (!activeTrip) return;
     setIsLoading(true);
     try {
-      const res = await api.getItinerary(activeTrip._id);
-      setItems(res.items);
+      const [itineraryRes, conflictsRes] = await Promise.allSettled([
+        api.getItinerary(activeTrip._id),
+        api.get<{ conflicts: any[] }>(`/itineraries/trip/${activeTrip._id}/conflicts`),
+      ]);
+      if (itineraryRes.status === 'fulfilled') {
+        setItems(itineraryRes.value.items);
+      }
+      if (
+        conflictsRes.status === 'fulfilled' &&
+        conflictsRes.value.success &&
+        conflictsRes.value.data?.conflicts
+      ) {
+        setConflicts(conflictsRes.value.data.conflicts);
+      }
     } catch (err) {
       console.error('Failed to load itinerary:', err);
     } finally {
@@ -148,6 +168,25 @@ export const ItineraryPage: React.FC = () => {
         </button>
       </div>
 
+      {/* Scheduling Conflicts Warning Banner */}
+      {conflicts.length > 0 && (
+        <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 flex items-start gap-3 shadow-xs">
+          <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+          <div className="space-y-1">
+            <h4 className="text-xs font-bold uppercase tracking-wider text-amber-800">
+              Schedule Conflicts Detected ({conflicts.length})
+            </h4>
+            <div className="space-y-0.5">
+              {conflicts.map((c, idx) => (
+                <p key={idx} className="text-xs text-amber-700">
+                  • {c.message}
+                </p>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Day Tabs */}
       <div className="flex items-center gap-2 overflow-x-auto pb-2 border-b border-[#E5EAF0]">
         {(daysList.length > 0 ? daysList : [1]).map((day) => (
@@ -208,6 +247,13 @@ export const ItineraryPage: React.FC = () => {
                     <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-slate-100 text-slate-600">
                       {item.category}
                     </span>
+                    {conflicts.some(
+                      (c) => c.itemA.id === item._id || c.itemB.id === item._id
+                    ) && (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300 flex items-center gap-1">
+                        ⚠️ Overlapping Schedule
+                      </span>
+                    )}
                   </div>
 
                   <h3 className="text-base font-bold text-[#172033]">{item.title}</h3>
@@ -345,7 +391,7 @@ export const ItineraryPage: React.FC = () => {
               type="text"
               value={location}
               onChange={(e) => setLocation(e.target.value)}
-              placeholder="e.g. Asakusa, Tokyo"
+              placeholder="e.g. Historic Quarter / Downtown"
               className="w-full text-xs px-3 py-2.5 rounded-xl border border-slate-300"
             />
           </div>

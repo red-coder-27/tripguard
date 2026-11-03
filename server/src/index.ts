@@ -1,29 +1,33 @@
-import app from './app.js';
+import { app } from './app.js';
 import { env } from './config/env.js';
 import { connectDB } from './config/db.js';
-import { Trip } from './models/Trip.js';
 import { seedDatabase } from './seed/seedData.js';
+import { Trip } from './models/Trip.js';
 
-async function bootstrap() {
+const PORT = env.PORT;
+
+async function startServer() {
   try {
     await connectDB();
 
-    // Check if database is empty; if so, automatically seed the demonstration scenario
-    const tripCount = await Trip.countDocuments();
-    if (tripCount === 0) {
-      console.log('[Bootstrap] No existing trips found. Running automated seed for demo scenario...');
-      await seedDatabase();
+    // Auto-seed demo data ONLY in non-production environments when database is empty
+    if (env.NODE_ENV !== 'production' && env.NODE_ENV !== 'test') {
+      const tripCount = await Trip.countDocuments();
+      if (tripCount === 0) {
+        console.log('[TripGuard Server] Non-production database empty - initializing demo seed data...');
+        await seedDatabase();
+      }
     }
 
-    app.listen(env.PORT, () => {
-      console.log(`[TripGuard Server] Running on http://localhost:${env.PORT}`);
-      console.log(`[TripGuard Server] Health check: http://localhost:${env.PORT}/api/health`);
+    app.listen(PORT, () => {
+      console.log(`[TripGuard Server] Running on http://localhost:${PORT}`);
+      console.log(`[TripGuard Server] Health check: http://localhost:${PORT}/api/health`);
+      console.log(`[TripGuard Server] Environment: ${env.NODE_ENV}`);
     });
   } catch (err: any) {
-    console.error('[Bootstrap] Failed to start TripGuard server:', err.message);
+    console.error('[TripGuard Server] Fatal startup failure:', err.message);
     process.exit(1);
   }
 }
 
-bootstrap();
-
+startServer();

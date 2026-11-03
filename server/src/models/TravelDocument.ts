@@ -35,3 +35,4 @@ const TravelDocumentSchema = new Schema<ITravelDocument>(
 );
 
 export const TravelDocument = mongoose.model<ITravelDocument>('TravelDocument', TravelDocumentSchema);
+

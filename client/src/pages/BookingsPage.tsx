@@ -132,9 +132,8 @@ export const BookingsPage: React.FC = () => {
           return (
             <div
               key={booking._id}
-              className={`p-6 rounded-2xl border bg-white shadow-xs transition-all hover:shadow-sm flex flex-col justify-between ${
-                isPendingAction ? 'border-amber-300 ring-1 ring-amber-300 bg-amber-50/20' : 'border-[#E5EAF0]'
-              }`}
+              className={`p-6 rounded-2xl border bg-white shadow-xs transition-all hover:shadow-sm flex flex-col justify-between ${isPendingAction ? 'border-amber-300 ring-1 ring-amber-300 bg-amber-50/20' : 'border-[#E5EAF0]'
+                }`}
             >
               <div>
                 <div className="flex items-start justify-between">
@@ -155,13 +154,12 @@ export const BookingsPage: React.FC = () => {
                   </div>
 
                   <span
-                    className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase ${
-                      isPendingAction
+                    className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase ${isPendingAction
                         ? 'bg-amber-100 text-amber-900 border border-amber-300'
                         : booking.status === 'CONFIRMED'
-                        ? 'bg-emerald-100 text-emerald-800'
-                        : 'bg-slate-100 text-slate-700'
-                    }`}
+                          ? 'bg-emerald-100 text-emerald-800'
+                          : 'bg-slate-100 text-slate-700'
+                      }`}
                   >
                     {booking.status.replace(/_/g, ' ')}
                   </span>
@@ -260,7 +258,7 @@ export const BookingsPage: React.FC = () => {
               required
               value={provider}
               onChange={(e) => setProvider(e.target.value)}
-              placeholder="e.g. Shinjuku Grand Tower Hotel"
+              placeholder="e.g. Grand Central Hotel & Suites"
               className="w-full text-xs px-3 py-2.5 rounded-xl border border-slate-300"
             />
           </div>

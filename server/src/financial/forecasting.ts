@@ -4,6 +4,7 @@ import { IBooking } from '../models/Booking.js';
 import { IExpense } from '../models/Expense.js';
 import { FinancialForecastBreakdown, BudgetRiskStatus } from '../types/index.js';
 import { buildCanonicalLedger } from './accounting.js';
+import { formatCurrencyAmount } from '../config/constants.js';
 
 export function calculateFinancialForecast(
   trip: ITrip,
@@ -28,8 +29,7 @@ export function calculateFinancialForecast(
   let riskStatus: BudgetRiskStatus;
   let riskReason: string;
 
-  const currencySymbol = trip.currency === 'INR' ? '₹' : '$';
-  const formatVal = (minor: number) => `${currencySymbol}${(minor / 100).toLocaleString()}`;
+  const formatVal = (minor: number) => formatCurrencyAmount(minor, trip.currency);
 
   if (projectedFinalCostMinor > totalBudgetMinor) {
     const overAmt = projectedFinalCostMinor - totalBudgetMinor;

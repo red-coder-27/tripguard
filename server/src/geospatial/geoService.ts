@@ -1,6 +1,7 @@
 import { IItineraryItem } from '../models/ItineraryItem.js';
 import { AlternativeOption, IAlternativeOption } from '../models/AlternativeOption.js';
 import { BUILTIN_ALTERNATIVES } from '../recovery/alternativesCatalog.js';
+import { formatCurrencyAmount, getCurrencySymbol } from '../config/constants.js';
 
 export interface LatLng {
   lat: number;
@@ -151,7 +152,8 @@ export async function findNearbyAlternatives(
   lat: number,
   lng: number,
   radiusKm: number = 8,
-  category?: string
+  category?: string,
+  currency: string = 'INR'
 ): Promise<NearbyAlternativeResult[]> {
   const dbAlts = await AlternativeOption.find({
     ...(category ? { category } : {}),
@@ -160,8 +162,8 @@ export async function findNearbyAlternatives(
   const results: NearbyAlternativeResult[] = [];
 
   for (const alt of dbAlts) {
-    const altLat = alt.latitude || 35.6938; // Default Tokyo center if unset
-    const altLng = alt.longitude || 139.7034;
+    const altLat = typeof alt.latitude === 'number' ? alt.latitude : lat;
+    const altLng = typeof alt.longitude === 'number' ? alt.longitude : lng;
     const dist = calculateHaversineDistanceKm(lat, lng, altLat, altLng);
 
     if (dist <= radiusKm) {
@@ -172,7 +174,7 @@ export async function findNearbyAlternatives(
         category: alt.category,
         tier: alt.tier,
         costMinor: alt.costMinor,
-        costDisplay: `₹${(alt.costMinor / 100).toLocaleString()}`,
+        costDisplay: formatCurrencyAmount(alt.costMinor, currency),
         distanceKm: dist,
         rating: alt.rating,
         safetyCertified: alt.safetyCertified,
@@ -182,23 +184,30 @@ export async function findNearbyAlternatives(
     }
   }
 
-  // Fallback if DB query returned 0
+  // Fallback to built-in catalog if DB query returned 0
   if (results.length === 0) {
     for (const b of BUILTIN_ALTERNATIVES) {
-      results.push({
-        id: b.id,
-        name: b.name,
-        provider: b.provider,
-        category: b.category,
-        tier: b.tier,
-        costMinor: b.costMinor,
-        costDisplay: `₹${(b.costMinor / 100).toLocaleString()}`,
-        distanceKm: b.distanceKmFromCenter,
-        rating: b.rating,
-        safetyCertified: b.safetyCertified,
-        cancellationTerms: b.cancellationTerms,
-        description: b.description,
-      });
+      if (category && b.category !== category) continue;
+      const bLat = typeof b.latitude === 'number' ? b.latitude : lat;
+      const bLng = typeof b.longitude === 'number' ? b.longitude : lng;
+      const dist = calculateHaversineDistanceKm(lat, lng, bLat, bLng);
+
+      if (dist <= radiusKm * 2 || results.length < 3) {
+        results.push({
+          id: b.id,
+          name: b.name,
+          provider: b.provider,
+          category: b.category,
+          tier: b.tier,
+          costMinor: b.costMinor,
+          costDisplay: formatCurrencyAmount(b.costMinor, currency),
+          distanceKm: dist > 0 ? dist : b.distanceKmFromCenter,
+          rating: b.rating ?? 4.5,
+          safetyCertified: b.safetyCertified,
+          cancellationTerms: b.cancellationTerms,
+          description: b.description,
+        });
+      }
     }
   }
 
@@ -208,15 +217,16 @@ export async function findNearbyAlternatives(
 /**
  * Compare multi-modal transport options for a given distance in km.
  */
-export function compareTransportModes(distanceKm: number): TransportComparisonOption[] {
+export function compareTransportModes(distanceKm: number, currency: string = 'INR'): TransportComparisonOption[] {
   const safeDist = Math.max(0.5, distanceKm);
+  const sym = getCurrencySymbol(currency);
 
   return [
     {
       mode: 'WALKING',
       title: 'Pedestrian Walking Route',
       costMinor: 0,
-      costDisplay: '₹0 (Free)',
+      costDisplay: `${sym}0 (Free)`,
       durationMinutes: Math.round(safeDist * 12),
       carbonEmissionKg: 0,
       convenienceRating: safeDist <= 2 ? 5 : 2,
@@ -225,18 +235,18 @@ export function compareTransportModes(distanceKm: number): TransportComparisonOp
     {
       mode: 'PUBLIC_TRANSIT',
       title: 'Metro / Subway Pass Transit',
-      costMinor: 15000, // ₹150
-      costDisplay: '₹150',
+      costMinor: 15000,
+      costDisplay: `${sym}150`,
       durationMinutes: Math.round(safeDist * 3.5 + 8),
       carbonEmissionKg: Math.round(safeDist * 0.035 * 100) / 100,
       convenienceRating: 5,
-      recommendedFor: 'Fastest & most cost-effective in Tokyo, Paris, London',
+      recommendedFor: 'Fastest & most cost-effective in major urban transit centers',
     },
     {
       mode: 'TAXI_RIDESHARE',
       title: 'On-Demand Taxi / Rideshare',
       costMinor: Math.round((400 + safeDist * 180) * 100),
-      costDisplay: `₹${Math.round(400 + safeDist * 180).toLocaleString()}`,
+      costDisplay: `${sym}${Math.round(400 + safeDist * 180).toLocaleString()}`,
       durationMinutes: Math.round(safeDist * 2.8 + 5),
       carbonEmissionKg: Math.round(safeDist * 0.17 * 100) / 100,
       convenienceRating: 4,
@@ -245,8 +255,8 @@ export function compareTransportModes(distanceKm: number): TransportComparisonOp
     {
       mode: 'CAR_RENTAL',
       title: 'Daily Rental Vehicle + Fuel',
-      costMinor: 350000, // ₹3,500 daily amortized
-      costDisplay: '₹3,500/day',
+      costMinor: 350000,
+      costDisplay: `${sym}3,500/day`,
       durationMinutes: Math.round(safeDist * 3.0),
       carbonEmissionKg: Math.round(safeDist * 0.22 * 100) / 100,
       convenienceRating: 3,
@@ -254,3 +264,4 @@ export function compareTransportModes(distanceKm: number): TransportComparisonOp
     },
   ];
 }
+

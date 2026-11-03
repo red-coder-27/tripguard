@@ -37,3 +37,4 @@ const PackingItemSchema = new Schema<IPackingItem>(
 );
 
 export const PackingItem = mongoose.model<IPackingItem>('PackingItem', PackingItemSchema);
+

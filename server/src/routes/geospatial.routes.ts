@@ -40,7 +40,7 @@ router.get('/trip/:tripId/map-data', authenticate, async (req: AuthRequest, res:
       success: true,
       data: {
         tripId,
-        destination: trip.destination || 'Tokyo, Japan',
+        destination: trip.destination,
         totalDays: Object.keys(dayGroups).length,
         items,
         backtrackingReports,
@@ -51,15 +51,16 @@ router.get('/trip/:tripId/map-data', authenticate, async (req: AuthRequest, res:
   }
 });
 
-// GET /api/v1/geo/nearby?lat=..&lng=..&radius=..&category=..
+// GET /api/v1/geo/nearby?lat=..&lng=..&radius=..&category=..&currency=..
 router.get('/nearby', authenticate, async (req: AuthRequest, res: Response) => {
   try {
-    const lat = Number(req.query.lat) || 35.6938;
-    const lng = Number(req.query.lng) || 139.7034;
+    const lat = Number(req.query.lat) || 48.8566;
+    const lng = Number(req.query.lng) || 2.3522;
     const radius = Number(req.query.radius) || 10;
     const category = req.query.category as string | undefined;
+    const currency = (req.query.currency as string) || 'INR';
 
-    const alternatives = await findNearbyAlternatives(lat, lng, radius, category);
+    const alternatives = await findNearbyAlternatives(lat, lng, radius, category, currency);
     res.json({
       success: true,
       data: alternatives,
@@ -69,11 +70,12 @@ router.get('/nearby', authenticate, async (req: AuthRequest, res: Response) => {
   }
 });
 
-// GET /api/v1/geo/transit-compare?distanceKm=..
+// GET /api/v1/geo/transit-compare?distanceKm=..&currency=..
 router.get('/transit-compare', authenticate, (req: AuthRequest, res: Response) => {
   try {
     const distanceKm = Number(req.query.distanceKm) || 8.5;
-    const options = compareTransportModes(distanceKm);
+    const currency = (req.query.currency as string) || 'INR';
+    const options = compareTransportModes(distanceKm, currency);
     res.json({
       success: true,
       data: {

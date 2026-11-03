@@ -18,7 +18,7 @@ const UserSchema = new Schema<IUser>(
     name: { type: String, required: true, trim: true },
     email: { type: String, required: true, unique: true, lowercase: true, trim: true, index: true },
     passwordHash: { type: String, required: true },
-    baseCurrency: { type: String, default: 'INR', enum: ['INR', 'USD', 'EUR', 'GBP'] },
+    baseCurrency: { type: String, default: 'INR', uppercase: true, trim: true },
     emergencyReservePercentage: { type: Number, default: 10, min: 0, max: 50 },
   },
   { timestamps: true }

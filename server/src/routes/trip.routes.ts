@@ -9,18 +9,21 @@ import { AuditEvent } from '../models/AuditEvent.js';
 import { authenticate, AuthRequest } from '../middleware/auth.js';
 import { validateBody } from '../middleware/validate.js';
 import { calculateFinancialForecast } from '../financial/forecasting.js';
+import { GeoapifyProvider } from '../providers/geoapify.provider.js';
 
 const router = Router();
 
 const createTripSchema = z.object({
   name: z.string().min(1, 'Trip name is required'),
   destination: z.string().min(1, 'Destination is required'),
+  destinationLatitude: z.number().optional(),
+  destinationLongitude: z.number().optional(),
   startDate: z.string().transform((val) => new Date(val)),
   endDate: z.string().transform((val) => new Date(val)),
   travelersCount: z.number().int().min(1).default(1),
   totalBudgetMinor: z.number().int().min(100, 'Budget must be at least 1 standard unit'),
   emergencyReserveMinor: z.number().int().min(0).optional(),
-  currency: z.enum(['INR', 'USD', 'EUR', 'GBP']).default('INR'),
+  currency: z.string().length(3).regex(/^[A-Za-z]{3}$/).transform((v) => v.toUpperCase()).default('INR'),
   preferences: z
     .object({
       primaryInterests: z.array(z.string()).default([]),
@@ -64,6 +67,8 @@ router.post('/', authenticate, validateBody(createTripSchema), async (req: AuthR
     const {
       name,
       destination,
+      destinationLatitude,
+      destinationLongitude,
       startDate,
       endDate,
       travelersCount,
@@ -72,6 +77,20 @@ router.post('/', authenticate, validateBody(createTripSchema), async (req: AuthR
       currency,
       preferences,
     } = req.body;
+
+    let lat = destinationLatitude;
+    let lon = destinationLongitude;
+    if (typeof lat !== 'number' || typeof lon !== 'number') {
+      try {
+        const geoRes = await GeoapifyProvider.geocode(destination);
+        if (geoRes && typeof geoRes.lat === 'number') {
+          lat = geoRes.lat;
+          lon = geoRes.lon;
+        }
+      } catch {
+        // Fallback gracefully
+      }
+    }
 
     const reserve =
       typeof emergencyReserveMinor === 'number'
@@ -82,6 +101,8 @@ router.post('/', authenticate, validateBody(createTripSchema), async (req: AuthR
       userId: req.user!.id,
       name,
       destination,
+      destinationLatitude: lat,
+      destinationLongitude: lon,
       startDate,
       endDate,
       travelersCount,
@@ -142,11 +163,30 @@ router.put('/:id', authenticate, async (req: AuthRequest, res: Response) => {
       return;
     }
 
-    const { name, destination, startDate, endDate, travelersCount, totalBudgetMinor, emergencyReserveMinor } =
+    const { name, destination, destinationLatitude, destinationLongitude, startDate, endDate, travelersCount, totalBudgetMinor, emergencyReserveMinor } =
       req.body;
 
     if (name) trip.name = name;
-    if (destination) trip.destination = destination;
+    if (destination && destination !== trip.destination) {
+      trip.destination = destination;
+      if (typeof destinationLatitude === 'number' && typeof destinationLongitude === 'number') {
+        trip.destinationLatitude = destinationLatitude;
+        trip.destinationLongitude = destinationLongitude;
+      } else {
+        try {
+          const geoRes = await GeoapifyProvider.geocode(destination);
+          if (geoRes && typeof geoRes.lat === 'number') {
+            trip.destinationLatitude = geoRes.lat;
+            trip.destinationLongitude = geoRes.lon;
+          }
+        } catch {
+          // Keep prior
+        }
+      }
+    } else {
+      if (typeof destinationLatitude === 'number') trip.destinationLatitude = destinationLatitude;
+      if (typeof destinationLongitude === 'number') trip.destinationLongitude = destinationLongitude;
+    }
     if (startDate) trip.startDate = new Date(startDate);
     if (endDate) trip.endDate = new Date(endDate);
     if (travelersCount) trip.travelersCount = travelersCount;

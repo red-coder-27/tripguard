@@ -29,6 +29,10 @@ export const SimulatorPage: React.FC = () => {
     }>
   >([]);
 
+  // Macro-variable simulation state
+  const [simulatedBudgetInput, setSimulatedBudgetInput] = useState<string>('');
+  const [extraDisruptionInput, setExtraDisruptionInput] = useState<string>('0');
+
   const [simulatedForecast, setSimulatedForecast] =
     useState<FinancialForecastBreakdown | null>(null);
   const [netDeltaMinor, setNetDeltaMinor] = useState<number>(0);
@@ -39,6 +43,9 @@ export const SimulatorPage: React.FC = () => {
     try {
       const res = await api.getItinerary(activeTrip._id);
       setItems(res.items);
+      if (!simulatedBudgetInput) {
+        setSimulatedBudgetInput((activeTrip.totalBudgetMinor / 100).toString());
+      }
     } catch (err) {
       console.error('Failed to load items for simulator:', err);
     }
@@ -49,11 +56,25 @@ export const SimulatorPage: React.FC = () => {
   }, [loadItems]);
 
   const runSimulation = useCallback(
-    async (currentAdjustments: typeof adjustments) => {
+    async (
+      currentAdjustments: typeof adjustments,
+      budgetStr: string = simulatedBudgetInput,
+      extraStr: string = extraDisruptionInput
+    ) => {
       if (!activeTrip) return;
       setIsLoading(true);
       try {
-        const res = await api.evaluateSimulation(activeTrip._id, currentAdjustments);
+        const parsedBudget = parseFloat(budgetStr);
+        const budgetMinor = !isNaN(parsedBudget) && parsedBudget > 0 ? Math.round(parsedBudget * 100) : undefined;
+        const parsedExtra = parseFloat(extraStr);
+        const extraMinor = !isNaN(parsedExtra) && parsedExtra > 0 ? Math.round(parsedExtra * 100) : undefined;
+
+        const res = await api.evaluateSimulation(
+          activeTrip._id,
+          currentAdjustments,
+          budgetMinor,
+          extraMinor
+        );
         setSimulatedForecast(res.simulatedForecast);
         setNetDeltaMinor(res.netDeltaMinor);
       } catch (err) {
@@ -62,7 +83,7 @@ export const SimulatorPage: React.FC = () => {
         setIsLoading(false);
       }
     },
-    [activeTrip]
+    [activeTrip, simulatedBudgetInput, extraDisruptionInput]
   );
 
   const handleAdjustItemCost = (itemId: string, newCostMinor: number) => {
@@ -82,7 +103,7 @@ export const SimulatorPage: React.FC = () => {
       });
     }
     setAdjustments(nextAdjustments);
-    runSimulation(nextAdjustments);
+    runSimulation(nextAdjustments, simulatedBudgetInput, extraDisruptionInput);
   };
 
   const handleRemoveItem = (itemId: string) => {
@@ -92,11 +113,25 @@ export const SimulatorPage: React.FC = () => {
       action: 'REMOVE',
     });
     setAdjustments(nextAdjustments);
-    runSimulation(nextAdjustments);
+    runSimulation(nextAdjustments, simulatedBudgetInput, extraDisruptionInput);
+  };
+
+  const handleBudgetChange = (val: string) => {
+    setSimulatedBudgetInput(val);
+    runSimulation(adjustments, val, extraDisruptionInput);
+  };
+
+  const handleExtraDisruptionChange = (val: string) => {
+    setExtraDisruptionInput(val);
+    runSimulation(adjustments, simulatedBudgetInput, val);
   };
 
   const handleReset = () => {
     setAdjustments([]);
+    if (activeTrip) {
+      setSimulatedBudgetInput((activeTrip.totalBudgetMinor / 100).toString());
+    }
+    setExtraDisruptionInput('0');
     setSimulatedForecast(null);
     setNetDeltaMinor(0);
   };
@@ -186,6 +221,61 @@ export const SimulatorPage: React.FC = () => {
           icon={Sparkles}
           variant={netDeltaMinor > 0 ? 'emerald' : 'default'}
         />
+      </div>
+
+      {/* Macro Scenario Controls */}
+      <div className="p-5 bg-white rounded-2xl border border-[#E5EAF0] shadow-xs space-y-3">
+        <h3 className="text-sm font-bold text-[#172033] uppercase tracking-wider flex items-center gap-2">
+          <span>Macro Scenario Simulator</span>
+          <span className="text-[10px] font-normal px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
+            Real-Time Engine Feedback
+          </span>
+        </h3>
+        <p className="text-xs text-[#64748B]">
+          Simulate macro budget contractions, unforeseen disruption expenses, or price inflation before tweaking individual items.
+        </p>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+          <div>
+            <label className="block text-xs font-semibold text-[#172033] mb-1">
+              Simulated Total Trip Budget ({curr})
+            </label>
+            <div className="relative">
+              <input
+                type="number"
+                min="1000"
+                step="500"
+                value={simulatedBudgetInput}
+                onChange={(e) => handleBudgetChange(e.target.value)}
+                className="w-full text-xs font-semibold px-3 py-2 rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500/20"
+                placeholder="Enter budget..."
+              />
+            </div>
+            <span className="text-[10px] text-slate-500 mt-1 block">
+              Original baseline: {formatCurrency(activeTrip.totalBudgetMinor, curr)}
+            </span>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-[#172033] mb-1">
+              Simulate Unexpected Disruption / Emergency Cost ({curr})
+            </label>
+            <div className="relative">
+              <input
+                type="number"
+                min="0"
+                step="500"
+                value={extraDisruptionInput}
+                onChange={(e) => handleExtraDisruptionChange(e.target.value)}
+                className="w-full text-xs font-semibold px-3 py-2 rounded-xl border border-slate-300 focus:ring-2 focus:ring-red-500/20"
+                placeholder="e.g. 5000 for emergency rerouting"
+              />
+            </div>
+            <span className="text-[10px] text-slate-500 mt-1 block">
+              Simulate flight surge, medical deductible, or transit disruption fees.
+            </span>
+          </div>
+        </div>
       </div>
 
       {/* Simulation Controls Grid */}

@@ -9,6 +9,10 @@ import { Expense } from '../models/Expense.js';
 import { RecoveryRun } from '../models/RecoveryRun.js';
 import { AlternativeOption } from '../models/AlternativeOption.js';
 import { AuditEvent } from '../models/AuditEvent.js';
+import { TransitTracking } from '../models/TransitTracking.js';
+import { TravelDocument } from '../models/TravelDocument.js';
+import { PackingItem } from '../models/PackingItem.js';
+import { TripMember } from '../models/TripMember.js';
 import { BUILTIN_ALTERNATIVES } from '../recovery/alternativesCatalog.js';
 import { calculateFinancialForecast } from '../financial/forecasting.js';
 
@@ -32,6 +36,10 @@ export async function seedDatabase(): Promise<void> {
       Expense.deleteMany({ tripId: { $in: tripIds } }),
       RecoveryRun.deleteMany({ tripId: { $in: tripIds } }),
       AuditEvent.deleteMany({ tripId: { $in: tripIds } }),
+      TransitTracking.deleteMany({ tripId: { $in: tripIds } }),
+      TravelDocument.deleteMany({ tripId: { $in: tripIds } }),
+      PackingItem.deleteMany({ tripId: { $in: tripIds } }),
+      TripMember.deleteMany({ tripId: { $in: tripIds } }),
       Trip.deleteMany({ userId: demoUser._id }),
     ]);
   } else {
@@ -469,6 +477,108 @@ export async function seedDatabase(): Promise<void> {
       paymentMethod: 'UPI',
       paymentStatus: 'SETTLED',
       notes: 'Prepaid pocket router for unlimited mobile navigation across Japan.',
+    },
+  ]);
+
+  // 6b. Seed Transit & Flight Intelligence Records
+  await TransitTracking.create([
+    {
+      tripId: demoTrip._id,
+      type: 'FLIGHT',
+      carrier: 'All Nippon Airways (ANA)',
+      code: 'NH 827',
+      departureCity: 'DEL Terminal 3',
+      arrivalCity: 'Tokyo Narita (NRT)',
+      departureTime: '2026-10-10T13:15:00.000Z',
+      arrivalTime: '2026-10-10T23:45:00.000Z',
+      status: 'ON_TIME',
+      delayMinutes: 0,
+      terminal: 'Terminal 3',
+      gate: 'Gate 18',
+      seat: '24K (Window)',
+      trackingMode: 'MANUAL_VERIFIED',
+      notes: 'Direct overnight flight. Special meal requested.',
+    },
+    {
+      tripId: demoTrip._id,
+      type: 'TRAIN',
+      carrier: 'JR East Narita Express (N’EX)',
+      code: 'N’EX 46',
+      departureCity: 'Narita Airport T1',
+      arrivalCity: 'Shinjuku Station',
+      departureTime: '2026-10-11T01:15:00.000Z',
+      arrivalTime: '2026-10-11T02:35:00.000Z',
+      status: 'ON_TIME',
+      delayMinutes: 0,
+      terminal: 'B1F Rail Station',
+      gate: 'Platform 1',
+      seat: 'Car 4, Seat 7A',
+      trackingMode: 'MANUAL_VERIFIED',
+      notes: 'Covered under JR Pass exchange voucher.',
+    },
+  ]);
+
+  // 6c. Seed Travel Document Vault
+  await TravelDocument.create([
+    {
+      tripId: demoTrip._id,
+      title: 'Narita International E-Ticket & Boarding Pass',
+      category: 'FLIGHT',
+      fileName: 'ANA-Flight-NH827-Ticket.pdf',
+      fileSize: '340 KB',
+      fileType: 'application/pdf',
+      bookingRef: 'ANA-NH827-TYO',
+      notes: 'Terminal 1 South Wing arrival gate. QR code saved on phone wallet.',
+    },
+    {
+      tripId: demoTrip._id,
+      title: 'Shinjuku Grand Tower Hotel Voucher',
+      category: 'HOTEL',
+      fileName: 'Shinjuku-Hotel-Confirmation.pdf',
+      fileSize: '210 KB',
+      fileType: 'application/pdf',
+      bookingRef: 'BK-TOKYO-8921',
+      notes: 'Check-in from 14:00. Non-smoking room, high floor requested.',
+    },
+    {
+      tripId: demoTrip._id,
+      title: 'Worldwide Comprehensive Travel Insurance',
+      category: 'INSURANCE',
+      fileName: 'Allianz-Global-Assistance-Policy.pdf',
+      fileSize: '450 KB',
+      fileType: 'application/pdf',
+      bookingRef: 'INS-2026-99120',
+      notes: 'Emergency 24/7 hotline: +81 3 5555 0199. ₹50,00,000 medical coverage.',
+    },
+  ]);
+
+  // 6d. Seed Smart Packing List
+  await PackingItem.create([
+    { tripId: demoTrip._id, name: 'Passport & Physical Visa', category: 'ESSENTIALS', quantity: 1, isPacked: true },
+    { tripId: demoTrip._id, name: 'Multi-Currency Forex Card / Cash JPY', category: 'ESSENTIALS', quantity: 1, isPacked: true },
+    { tripId: demoTrip._id, name: 'Pocket Wi-Fi & Japanese Type-A Plug Adapters', category: 'ELECTRONICS', quantity: 2, isPacked: true },
+    { tripId: demoTrip._id, name: 'Comfortable Urban Walking Shoes (Sneakers)', category: 'CLOTHING', quantity: 2, isPacked: false },
+    { tripId: demoTrip._id, name: 'Windproof Compact Umbrella (Rain Forecast Day 3)', category: 'WEATHER_SPECIFIC', quantity: 1, isPacked: false, isRecommendedByWeather: true },
+    { tripId: demoTrip._id, name: 'Light Layering Jacket / Fleece', category: 'CLOTHING', quantity: 2, isPacked: false },
+  ]);
+
+  // 6e. Seed Group Members
+  await TripMember.create([
+    {
+      tripId: demoTrip._id,
+      name: 'Alex Rivera (Lead)',
+      email: 'demo@tripguard.ai',
+      role: 'LEAD_ORGANIZER',
+      sharePercentage: 50,
+      contributedAmountMinor: 1000000,
+    },
+    {
+      tripId: demoTrip._id,
+      name: 'Jordan Lee (Traveler)',
+      email: 'jordan@tripguard.ai',
+      role: 'CO_TRAVELER',
+      sharePercentage: 50,
+      contributedAmountMinor: 0,
     },
   ]);
 

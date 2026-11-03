@@ -1,4 +1,4 @@
-export type Currency = 'INR' | 'USD' | 'EUR' | 'GBP';
+export type Currency = string;
 
 export type ActivityPriority = 'MUST_DO' | 'FLEXIBLE' | 'OPTIONAL';
 
@@ -70,6 +70,8 @@ export interface Trip {
   userId: string;
   name: string;
   destination: string;
+  destinationLatitude?: number;
+  destinationLongitude?: number;
   startDate: string;
   endDate: string;
   travelersCount: number;
