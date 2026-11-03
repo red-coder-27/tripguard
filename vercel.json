@@ -14,7 +14,7 @@
     "backend": {
       "root": "server/",
       "framework": "express",
-      "entrypoint": "dist/app.js"
+      "entrypoint": "src/app.ts"
     }
   },
   "rewrites": [

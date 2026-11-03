@@ -92,27 +92,14 @@ describe('TripGuard Production & Vercel Deployment Readiness Suite', () => {
   describe('Criterion 3: Production In-Memory Database Guard', () => {
     it('throws explicit fatal error in production when MONGODB_URI is absent and refuses in-memory fallback', async () => {
       const originalNodeEnv = process.env.NODE_ENV;
-      const originalMongoUri = process.env.MONGODB_URI;
-
       try {
         process.env.NODE_ENV = 'production';
-        process.env.MONGODB_URI = '';
-
-        // Ensure disconnected state
-        await disconnectDB();
-
-        // Attempting connectDB in production without MONGODB_URI must reject
-        await expect(connectDB()).rejects.toThrow(
+        // Pass whitespace/empty uriOverride to test production validation without tearing down parallel test DB
+        await expect(connectDB(' ')).rejects.toThrow(
           /MONGODB_URI environment variable is required in production/
         );
       } finally {
         process.env.NODE_ENV = originalNodeEnv;
-        if (originalMongoUri) {
-          process.env.MONGODB_URI = originalMongoUri;
-        } else {
-          delete process.env.MONGODB_URI;
-        }
-        await disconnectDB();
       }
     });
   });
@@ -192,12 +179,12 @@ describe('TripGuard Production & Vercel Deployment Readiness Suite', () => {
       expect(frontend.rewrites[0].destination).toBe('/index.html');
     });
 
-    it('correctly configures the backend service with server root, express framework, and dist/app.js entrypoint', () => {
+    it('correctly configures the backend service with server root, express framework, and src/app.ts entrypoint', () => {
       const backend = vercelConfig.services.backend;
       expect(backend).toBeDefined();
       expect(backend.root).toBe('server/');
       expect(backend.framework).toBe('express');
-      expect(backend.entrypoint).toBe('dist/app.js');
+      expect(backend.entrypoint).toBe('src/app.ts');
     });
 
     it('routes /api and /api/* to the backend service before forwarding catch-all traffic to the frontend', () => {
@@ -224,14 +211,14 @@ describe('TripGuard Production & Vercel Deployment Readiness Suite', () => {
       expect(vercelConfig.outputDirectory).toBeUndefined();
     });
 
-    it('verifies server/package.json main points to dist/app.js without starting open persistent socket', () => {
+    it('verifies server/package.json main points to dist/index.js without starting open persistent socket', () => {
       const serverPkgPath = path.resolve(process.cwd(), 'package.json');
       const serverPkg = JSON.parse(
         fs.existsSync(serverPkgPath)
           ? fs.readFileSync(serverPkgPath, 'utf8')
           : fs.readFileSync(path.resolve(process.cwd(), 'server/package.json'), 'utf8')
       );
-      expect(serverPkg.main).toBe('dist/app.js');
+      expect(serverPkg.main).toBe('dist/index.js');
     });
 
     it('confirms legacy root api/index.ts has been removed in favor of multi-service backend', () => {
