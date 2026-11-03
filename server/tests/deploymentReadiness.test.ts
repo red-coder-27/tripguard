@@ -86,6 +86,28 @@ describe('TripGuard Production & Vercel Deployment Readiness Suite', () => {
       expect(parsed.MONGODB_URI).toBe('mongodb+srv://produser:ProdPass123!@cluster0.mongodb.net/tripguard_prod');
       expect(parsed.CORS_ORIGIN).toBe('https://tripguard.vercel.app');
     });
+
+    it('sanitizes quotes and whitespace from JWT_EXPIRES_IN and JWT_SECRET', () => {
+      const parsedWithQuotes = parseEnv({
+        ...baseValidProd,
+        JWT_SECRET: '"production_super_strong_secret_key_9999_verified"',
+        JWT_EXPIRES_IN: '"7d"',
+      });
+      expect(parsedWithQuotes.JWT_SECRET).toBe('production_super_strong_secret_key_9999_verified');
+      expect(parsedWithQuotes.JWT_EXPIRES_IN).toBe('7d');
+
+      const parsedWithSingleQuotes = parseEnv({
+        ...baseValidProd,
+        JWT_EXPIRES_IN: "'24h'",
+      });
+      expect(parsedWithSingleQuotes.JWT_EXPIRES_IN).toBe('24h');
+
+      const parsedWithEmptyString = parseEnv({
+        ...baseValidProd,
+        JWT_EXPIRES_IN: '  ',
+      });
+      expect(parsedWithEmptyString.JWT_EXPIRES_IN).toBe('7d');
+    });
   });
 
   // 4. In-Memory Database Guard
@@ -285,6 +307,67 @@ describe('TripGuard Production & Vercel Deployment Readiness Suite', () => {
       expect(res.status).toBe(200);
       expect(res.body.proxy).toBeDefined();
       expect(['127.0.0.1', '::1', '::ffff:127.0.0.1']).toContain(res.body.proxy.ip);
+    });
+  });
+
+  // 9. Production Authentication Resilience & Error Classification Suite
+  describe('Criterion 10: Production Authentication Resilience & Error Classification', () => {
+    it('returns 401 Unauthorized instead of 500 when logging in with non-existent email', async () => {
+      const res = await request(app)
+        .post('/api/v1/auth/login')
+        .send({ email: 'nonexistent.traveler.999@tripguard.ai', password: 'AnyPassword123!' });
+
+      expect(res.status).toBe(401);
+      expect(res.body.success).toBe(false);
+      expect(res.body.error).toBe('Invalid email or password.');
+    });
+
+    it('returns 401 Unauthorized instead of 500 when logging in with incorrect password', async () => {
+      // Register temporary user
+      const testEmail = `auth.test.${Date.now()}@tripguard.ai`;
+      await request(app)
+        .post('/api/v1/auth/register')
+        .send({ name: 'Auth Tester', email: testEmail, password: 'CorrectPassword123!' });
+
+      const res = await request(app)
+        .post('/api/v1/auth/login')
+        .send({ email: testEmail, password: 'WrongPassword999!' });
+
+      expect(res.status).toBe(401);
+      expect(res.body.success).toBe(false);
+      expect(res.body.error).toBe('Invalid email or password.');
+    });
+
+    it('returns 409 Conflict instead of 500 when registering an existing email address', async () => {
+      const testEmail = `dup.test.${Date.now()}@tripguard.ai`;
+      // First registration
+      const firstRes = await request(app)
+        .post('/api/v1/auth/register')
+        .send({ name: 'Dup User', email: testEmail, password: 'ValidPassword123!' });
+      expect(firstRes.status).toBe(201);
+
+      // Duplicate registration attempt
+      const dupRes = await request(app)
+        .post('/api/v1/auth/register')
+        .send({ name: 'Dup User 2', email: testEmail, password: 'ValidPassword123!' });
+      expect(dupRes.status).toBe(409);
+      expect(dupRes.body.success).toBe(false);
+      expect(dupRes.body.error).toContain('already exists');
+    });
+
+    it('safely handles missing or corrupted passwordHash on user model without throwing 500', async () => {
+      const { User } = await import('../src/models/User.js');
+      const testEmail = `corrupt.hash.${Date.now()}@tripguard.ai`;
+      
+      // Directly create document with empty passwordHash
+      const corruptedUser = new User({
+        name: 'Corrupted User',
+        email: testEmail,
+        passwordHash: '',
+      });
+      
+      const isMatch = await corruptedUser.comparePassword('AnyPassword123!');
+      expect(isMatch).toBe(false);
     });
   });
 });

@@ -25,6 +25,9 @@ const UserSchema = new Schema<IUser>(
 );
 
 UserSchema.methods.comparePassword = async function (candidate: string): Promise<boolean> {
+  if (!this.passwordHash || typeof this.passwordHash !== 'string' || typeof candidate !== 'string') {
+    return false;
+  }
   return bcrypt.compare(candidate, this.passwordHash);
 };
 

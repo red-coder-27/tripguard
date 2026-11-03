@@ -12,9 +12,33 @@ export const envSchema = z
   .object({
     PORT: z.string().default('5000').transform(Number),
     NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
-    JWT_SECRET: z.string().default(DEV_DEFAULT_JWT),
-    JWT_EXPIRES_IN: z.string().default('7d'),
-    CORS_ORIGIN: z.string().default('http://localhost:5173'),
+    JWT_SECRET: z
+      .string()
+      .transform((val) => val.trim().replace(/^["']+|["']+$/g, '').trim())
+      .default(DEV_DEFAULT_JWT),
+    JWT_EXPIRES_IN: z
+      .union([z.string(), z.number()])
+      .optional()
+      .transform((val) => {
+        if (typeof val === 'number') return val > 0 ? val : '7d';
+        if (typeof val === 'string') {
+          const cleaned = val.trim().replace(/^["']+|["']+$/g, '').trim();
+          if (!cleaned) return '7d';
+          if (/^\d+$/.test(cleaned)) {
+            const num = parseInt(cleaned, 10);
+            return num > 0 ? num : '7d';
+          }
+          if (/^\d+\s*(ms|s|m|h|d|w|y|seconds?|minutes?|hours?|days?|weeks?|years?)$/i.test(cleaned)) {
+            return cleaned;
+          }
+        }
+        return '7d';
+      })
+      .default('7d'),
+    CORS_ORIGIN: z
+      .string()
+      .transform((val) => val.trim().replace(/^["']+|["']+$/g, '').trim())
+      .default('http://localhost:5173'),
     MONGODB_URI: z.string().optional(),
     GEMINI_API_KEY: z.string().optional(),
     GEMINI_MODEL: z.string().default('gemini-2.5-flash'),

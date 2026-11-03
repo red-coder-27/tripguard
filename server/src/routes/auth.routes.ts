@@ -21,12 +21,25 @@ const loginSchema = z.object({
   password: z.string().min(1, 'Password is required'),
 });
 
+function generateAuthToken(user: { _id: any; email: string; name: string }): string {
+  let expiresIn = env.JWT_EXPIRES_IN;
+  if (typeof expiresIn === 'string') {
+    expiresIn = expiresIn.trim().replace(/^["']+|["']+$/g, '').trim() || '7d';
+  }
+  return jwt.sign(
+    { id: user._id.toString(), email: user.email, name: user.name },
+    env.JWT_SECRET,
+    { expiresIn: expiresIn as any }
+  );
+}
+
 // Register
 router.post('/register', validateBody(registerSchema), async (req: Request, res: Response) => {
   try {
     const { name, email, password, baseCurrency } = req.body;
 
-    const existing = await User.findOne({ email: email.toLowerCase() });
+    const normalizedEmail = email.toLowerCase().trim();
+    const existing = await User.findOne({ email: normalizedEmail });
     if (existing) {
       res.status(409).json({ success: false, error: 'A user with this email address already exists.' });
       return;
@@ -36,17 +49,13 @@ router.post('/register', validateBody(registerSchema), async (req: Request, res:
     const passwordHash = await bcrypt.hash(password, salt);
 
     const user = await User.create({
-      name,
-      email: email.toLowerCase(),
+      name: name.trim(),
+      email: normalizedEmail,
       passwordHash,
       baseCurrency,
     });
 
-    const token = jwt.sign(
-      { id: user._id.toString(), email: user.email, name: user.name },
-      env.JWT_SECRET,
-      { expiresIn: env.JWT_EXPIRES_IN as any }
-    );
+    const token = generateAuthToken(user);
 
     res.status(201).json({
       success: true,
@@ -60,7 +69,12 @@ router.post('/register', validateBody(registerSchema), async (req: Request, res:
       },
     });
   } catch (err: any) {
-    res.status(500).json({ success: false, error: err.message });
+    if (err.code === 11000) {
+      res.status(409).json({ success: false, error: 'A user with this email address already exists.' });
+      return;
+    }
+    console.error('[Auth Register Error]:', err.name, err.message);
+    res.status(500).json({ success: false, error: 'Account registration failed. Please try again.' });
   }
 });
 
@@ -69,7 +83,8 @@ router.post('/login', validateBody(loginSchema), async (req: Request, res: Respo
   try {
     const { email, password } = req.body;
 
-    const user = await User.findOne({ email: email.toLowerCase() });
+    const normalizedEmail = email.toLowerCase().trim();
+    const user = await User.findOne({ email: normalizedEmail });
     if (!user) {
       res.status(401).json({ success: false, error: 'Invalid email or password.' });
       return;
@@ -81,11 +96,7 @@ router.post('/login', validateBody(loginSchema), async (req: Request, res: Respo
       return;
     }
 
-    const token = jwt.sign(
-      { id: user._id.toString(), email: user.email, name: user.name },
-      env.JWT_SECRET,
-      { expiresIn: env.JWT_EXPIRES_IN as any }
-    );
+    const token = generateAuthToken(user);
 
     res.json({
       success: true,
@@ -99,7 +110,8 @@ router.post('/login', validateBody(loginSchema), async (req: Request, res: Respo
       },
     });
   } catch (err: any) {
-    res.status(500).json({ success: false, error: err.message });
+    console.error('[Auth Login Error]:', err.name, err.message);
+    res.status(500).json({ success: false, error: 'Authentication failed due to an internal server error.' });
   }
 });
 
